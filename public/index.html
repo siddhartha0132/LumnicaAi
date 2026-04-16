@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUMNICA AI - Ayurvedic Skincare</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .step {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            background: #eef1ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #e0e7ff;
+            border-color: #764ba2;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .preview-img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 15px;
+            margin: 20px auto;
+            display: block;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: block;
+            margin: 20px auto;
+            font-weight: bold;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .skin-data {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .skin-data h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .skin-data p {
+            margin: 8px 0;
+            color: #333;
+        }
+
+        .question {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .question h4 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+        }
+
+        .option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .option:hover {
+            border-color: #667eea;
+            background: #eef1ff;
+        }
+
+        .option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        .dosha-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .routine-section {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .routine-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .routine-step {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .product-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 2px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .product-card:hover {
+            border-color: #667eea;
+        }
+
+        .price {
+            color: #667eea;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #c33;
+        }
+
+        .progress {
+            text-align: center;
+            color: #667eea;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✨ LUMNICA AI</h1>
+        <p class="subtitle">Ayurvedic Skincare Powered by AI</p>
+
+        <!-- Step 1: Upload Photo -->
+        <div id="step1" class="step active">
+            <h2 style="text-align: center; margin-bottom: 20px;">Step 1: Upload Your Photo</h2>
+            <div class="upload-area" id="uploadArea">
+                <p style="font-size: 3em; margin-bottom: 10px;">📸</p>
+                <p style="font-size: 1.2em; color: #667eea;">Click or drag your facial photo here</p>
+                <p style="color: #999; margin-top: 10px;">Supported: JPG, PNG (Max 5MB)</p>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <img id="preview" class="preview-img" style="display: none;">
+            <button id="analyzeBtn" style="display: none;">Analyze My Skin</button>
+        </div>
+
+        <!-- Step 2: Loading -->
+        <div id="step2" class="step">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p style="text-align: center; color: #667eea; font-size: 1.2em;">Analyzing your skin with AI...</p>
+            </div>
+        </div>
+
+        <!-- Step 3: Skin Data + Quiz -->
+        <div id="step3" class="step">
+            <h2 style="text-align: center; margin-bottom: 20px;">Your Skin Analysis</h2>
+            <div class="skin-data" id="skinDataDisplay"></div>
+            <div class="progress">Loading personalized questions...</div>
+            <div id="questionsContainer"></div>
+            <button id="submitQuizBtn" style="display: none;">Get My Skincare Profile</button>
+        </div>
+
+        <!-- Step 4: Final Loading -->
+        <div id="step4" class="step">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p style="text-align: center; color: #667eea; font-size: 1.2em;">Creating your personalized Ayurvedic profile...</p>
+            </div>
+        </div>
+
+        <!-- Step 5: Results -->
+        <div id="step5" class="step">
+            <h2 style="text-align: center; margin-bottom: 20px;">Your Ayurvedic Skincare Profile</h2>
+            <div id="resultsContainer"></div>
+            <button onclick="location.reload()">Start Over</button>
+        </div>
+
+        <!-- Error Display -->
+        <div id="errorDisplay" style="display: none;" class="error"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        let selectedFile = null;
+        let skinData = null;
+        let questions = [];
+        let answers = [];
+
+        console.log('Script loaded, API URL:', API_URL);
+
+        // Upload Area
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        console.log('Elements loaded:', { uploadArea, fileInput, preview, analyzeBtn });
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFile(file);
+        });
+
+        function handleFile(file) {
+            console.log('File selected:', file);
+            
+            if (!file || !file.type.startsWith('image/')) {
+                showError('Please upload a valid image file');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                showError('File size must be less than 5MB');
+                return;
+            }
+
+            selectedFile = file;
+            console.log('File accepted:', file.name, file.size, file.type);
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                analyzeBtn.style.display = 'block';
+                console.log('Preview loaded');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                console.error('No file selected');
+                return;
+            }
+
+            console.log('Starting analysis...');
+            showStep(2);
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            try {
+                console.log('Sending request to:', `${API_URL}/analyzeSkin`);
+                const response = await fetch(`${API_URL}/analyzeSkin`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error('Failed to analyze skin: ' + errorText);
+                }
+
+                const data = await response.json();
+                console.log('Analysis result:', data);
+                skinData = data.skinData;
+
+                displaySkinData();
+                await loadQuiz();
+                showStep(3);
+            } catch (error) {
+                console.error('Analysis error:', error);
+                showError('Failed to analyze image: ' + error.message);
+                showStep(1);
+            }
+        });
+
+        function displaySkinData() {
+            const display = document.getElementById('skinDataDisplay');
+            display.innerHTML = `
+                <h3>📊 Skin Analysis Results</h3>
+                <p><strong>Tone:</strong> ${skinData.tone}</p>
+                <p><strong>Oiliness:</strong> ${skinData.oiliness}</p>
+                <p><strong>Texture:</strong> ${skinData.texture}</p>
+                <p><strong>Concerns:</strong> ${skinData.concerns.join(', ')}</p>
+                <p><strong>Undertone:</strong> ${skinData.undertone}</p>
+            `;
+        }
+
+        async function loadQuiz() {
+            try {
+                const response = await fetch(`${API_URL}/generateQuiz`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ skinData })
+                });
+
+                if (!response.ok) throw new Error('Failed to generate quiz');
+
+                const data = await response.json();
+                questions = data.questions;
+                answers = new Array(questions.length).fill(null);
+
+                displayQuestions();
+            } catch (error) {
+                showError('Failed to load questions: ' + error.message);
+            }
+        }
+
+        function displayQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '<h3 style="color: #667eea; margin: 20px 0;">Answer These Questions</h3>';
+
+            questions.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                questionDiv.innerHTML = `
+                    <h4>Q${index + 1}: ${q.question}</h4>
+                    <div class="options">
+                        ${q.options.map((opt, optIndex) => `
+                            <div class="option" data-question="${index}" data-answer="${optIndex}">
+                                ${opt}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(questionDiv);
+            });
+
+            document.querySelectorAll('.option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    const qIndex = this.dataset.question;
+                    const aIndex = this.dataset.answer;
+
+                    document.querySelectorAll(`[data-question="${qIndex}"]`).forEach(o => {
+                        o.classList.remove('selected');
+                    });
+
+                    this.classList.add('selected');
+                    answers[qIndex] = questions[qIndex].options[aIndex];
+
+                    if (answers.every(a => a !== null)) {
+                        document.getElementById('submitQuizBtn').style.display = 'block';
+                    }
+                });
+            });
+
+            document.querySelector('.progress').style.display = 'none';
+        }
+
+        document.getElementById('submitQuizBtn').addEventListener('click', async () => {
+            showStep(4);
+
+            try {
+                const response = await fetch(`${API_URL}/analyzeResults`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ skinData, answers })
+                });
+
+                if (!response.ok) throw new Error('Failed to analyze results');
+
+                const results = await response.json();
+                displayResults(results);
+                showStep(5);
+            } catch (error) {
+                showError('Failed to get results: ' + error.message);
+                showStep(3);
+            }
+        });
+
+        function displayResults(results) {
+            const container = document.getElementById('resultsContainer');
+            
+            container.innerHTML = `
+                <div class="dosha-card">
+                    <h2>🕉️ Your Dosha: ${results.dosha.type}</h2>
+                    <p style="margin-top: 15px; line-height: 1.6;">${results.dosha.description}</p>
+                </div>
+
+                <div class="routine-section">
+                    <h3>🌅 Morning Routine</h3>
+                    ${results.routine.morning.map(step => `
+                        <div class="routine-step">
+                            <strong>${step.step}:</strong> ${step.product}<br>
+                            <small style="color: #666;">${step.reason}</small>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="routine-section">
+                    <h3>🌙 Night Routine</h3>
+                    ${results.routine.night.map(step => `
+                        <div class="routine-step">
+                            <strong>${step.step}:</strong> ${step.product}<br>
+                            <small style="color: #666;">${step.reason}</small>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="routine-section">
+                    <h3>📅 Weekly Routine</h3>
+                    ${results.routine.weekly.map(step => `
+                        <div class="routine-step">
+                            <strong>${step.step}:</strong> ${step.product}<br>
+                            <small style="color: #666;">${step.reason}</small>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="routine-section">
+                    <h3>🛍️ Recommended Products</h3>
+                    ${results.products.map(product => `
+                        <div class="product-card">
+                            <div>
+                                <strong>${product.name}</strong><br>
+                                <small style="color: #666;">${product.benefit}</small>
+                            </div>
+                            <div class="price">₹${product.price}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function showStep(stepNumber) {
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+            document.getElementById('errorDisplay').style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorDisplay = document.getElementById('errorDisplay');
+            errorDisplay.textContent = message;
+            errorDisplay.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

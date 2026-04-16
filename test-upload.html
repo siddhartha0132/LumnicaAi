@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Upload</title>
+</head>
+<body>
+    <h1>Simple Upload Test</h1>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="testUpload()">Upload</button>
+    <div id="result"></div>
+
+    <script>
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            console.log('File selected:', file.name, file.type, file.size);
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                console.log('Sending to: http://localhost:5000/api/analyzeSkin');
+                const response = await fetch('http://localhost:5000/api/analyzeSkin', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

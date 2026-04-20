@@ -33,6 +33,15 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
+// Health check endpoint (no rate limiting)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 app.use('/api/analyzeSkin', analyzeSkinRoute);
 app.use('/api/analyzeSkinML', analyzeSkinMLRoute);
 app.use('/api/generateQuiz', generateQuizRoute);

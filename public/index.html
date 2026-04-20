@@ -247,6 +247,43 @@
             border-left: 4px solid #c33;
         }
 
+        .method-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
         .progress {
             text-align: center;
             color: #667eea;
@@ -260,17 +297,55 @@
         <h1>✨ LUMNICA AI</h1>
         <p class="subtitle">Ayurvedic Skincare Powered by AI</p>
 
-        <!-- Step 1: Upload Photo -->
+        <!-- Step 1: Choose Method -->
         <div id="step1" class="step active">
-            <h2 style="text-align: center; margin-bottom: 20px;">Step 1: Upload Your Photo</h2>
-            <div class="upload-area" id="uploadArea">
-                <p style="font-size: 3em; margin-bottom: 10px;">📸</p>
-                <p style="font-size: 1.2em; color: #667eea;">Click or drag your facial photo here</p>
-                <p style="color: #999; margin-top: 10px;">Supported: JPG, PNG (Max 5MB)</p>
-                <input type="file" id="fileInput" accept="image/*">
+            <h2 style="text-align: center; margin-bottom: 20px;">Step 1: Choose Analysis Method</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                <div class="method-card" id="liveCameraCard" style="cursor: pointer; padding: 30px; border: 3px solid #667eea; border-radius: 15px; text-align: center; transition: all 0.3s; background: #f8f9ff;">
+                    <p style="font-size: 3em; margin-bottom: 10px;">📹</p>
+                    <h3 style="color: #667eea; margin-bottom: 10px;">Live Camera</h3>
+                    <p style="color: #666; font-size: 0.9em;">Real-time ML analysis</p>
+                    <p style="color: #48bb78; font-weight: bold; margin-top: 10px;">⚡ Instant • Free</p>
+                </div>
+                
+                <div class="method-card" id="uploadPhotoCard" style="cursor: pointer; padding: 30px; border: 3px solid #ddd; border-radius: 15px; text-align: center; transition: all 0.3s; background: white;">
+                    <p style="font-size: 3em; margin-bottom: 10px;">📸</p>
+                    <h3 style="color: #667eea; margin-bottom: 10px;">Upload Photo</h3>
+                    <p style="color: #666; font-size: 0.9em;">Traditional analysis</p>
+                    <p style="color: #999; font-weight: bold; margin-top: 10px;">📤 Upload image</p>
+                </div>
             </div>
-            <img id="preview" class="preview-img" style="display: none;">
-            <button id="analyzeBtn" style="display: none;">Analyze My Skin</button>
+            
+            <!-- Live Camera Section -->
+            <div id="liveCameraSection" style="display: none;">
+                <div style="position: relative; max-width: 640px; margin: 0 auto 20px; border-radius: 15px; overflow: hidden; background: #000;">
+                    <video id="video" autoplay playsinline style="width: 100%; display: block;"></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <div id="cameraStatus" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 0.9em;">
+                        Initializing...
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <button id="startCameraBtn" class="btn-secondary" style="display: inline-block; margin: 10px;">Start Camera</button>
+                    <button id="stopCameraBtn" class="btn-secondary" style="display: none; margin: 10px;">Stop Camera</button>
+                    <button id="analyzeLiveBtn" class="btn-primary" style="display: none; margin: 10px;">Analyze Now</button>
+                    <button id="backToChoiceBtn" class="btn-secondary" style="display: inline-block; margin: 10px;">Back</button>
+                </div>
+            </div>
+            
+            <!-- Upload Photo Section -->
+            <div id="uploadPhotoSection" style="display: none;">
+                <div class="upload-area" id="uploadArea">
+                    <p style="font-size: 3em; margin-bottom: 10px;">📸</p>
+                    <p style="font-size: 1.2em; color: #667eea;">Click or drag your facial photo here</p>
+                    <p style="color: #999; margin-top: 10px;">Supported: JPG, PNG (Max 5MB)</p>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+                <img id="preview" class="preview-img" style="display: none;">
+                <button id="analyzeUploadBtn" style="display: none;">Analyze My Skin</button>
+                <button id="backToChoiceBtn2" class="btn-secondary" style="display: block; margin: 20px auto;">Back</button>
+            </div>
         </div>
 
         <!-- Step 2: Loading -->
@@ -309,22 +384,197 @@
         <div id="errorDisplay" style="display: none;" class="error"></div>
     </div>
 
-    <script>
+    <script type="module">
+        import {
+            startCamera,
+            stopCamera,
+            initFaceMesh,
+            runLiveSkinAnalysis
+        } from './ml-engine.js';
+
         const API_URL = 'http://localhost:5000/api';
         let selectedFile = null;
         let skinData = null;
         let questions = [];
         let answers = [];
+        let isLiveCameraMode = false;
+        let cameraRunning = false;
 
         console.log('Script loaded, API URL:', API_URL);
 
-        // Upload Area
+        // Method Selection
+        const liveCameraCard = document.getElementById('liveCameraCard');
+        const uploadPhotoCard = document.getElementById('uploadPhotoCard');
+        const liveCameraSection = document.getElementById('liveCameraSection');
+        const uploadPhotoSection = document.getElementById('uploadPhotoSection');
+
+        liveCameraCard.addEventListener('click', () => {
+            isLiveCameraMode = true;
+            liveCameraCard.style.display = 'none';
+            uploadPhotoCard.style.display = 'none';
+            liveCameraSection.style.display = 'block';
+        });
+
+        uploadPhotoCard.addEventListener('click', () => {
+            isLiveCameraMode = false;
+            liveCameraCard.style.display = 'none';
+            uploadPhotoCard.style.display = 'none';
+            uploadPhotoSection.style.display = 'block';
+        });
+
+        document.getElementById('backToChoiceBtn').addEventListener('click', () => {
+            if (cameraRunning) {
+                stopCamera(document.getElementById('video'));
+                cameraRunning = false;
+            }
+            liveCameraSection.style.display = 'none';
+            liveCameraCard.style.display = 'block';
+            uploadPhotoCard.style.display = 'block';
+        });
+
+        document.getElementById('backToChoiceBtn2').addEventListener('click', () => {
+            uploadPhotoSection.style.display = 'none';
+            liveCameraCard.style.display = 'block';
+            uploadPhotoCard.style.display = 'block';
+            document.getElementById('preview').style.display = 'none';
+            document.getElementById('analyzeUploadBtn').style.display = 'none';
+        });
+
+        // Live Camera Controls
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const stopCameraBtn = document.getElementById('stopCameraBtn');
+        const analyzeLiveBtn = document.getElementById('analyzeLiveBtn');
+        const cameraStatus = document.getElementById('cameraStatus');
+
+        function setCameraStatus(message, color = '#48bb78') {
+            cameraStatus.textContent = message;
+            cameraStatus.style.background = `rgba(0,0,0,0.7)`;
+            cameraStatus.style.color = color;
+        }
+
+        startCameraBtn.addEventListener('click', async () => {
+            setCameraStatus('Starting camera...', '#fbbf24');
+            
+            const result = await startCamera(video);
+            if (!result.success) {
+                setCameraStatus('Camera error', '#ef4444');
+                showError('Camera access denied: ' + result.error);
+                return;
+            }
+            
+            setCameraStatus('Loading face detection...', '#fbbf24');
+            await initFaceMesh();
+            
+            cameraRunning = true;
+            startCameraBtn.style.display = 'none';
+            stopCameraBtn.style.display = 'inline-block';
+            analyzeLiveBtn.style.display = 'inline-block';
+            setCameraStatus('✓ Ready', '#48bb78');
+        });
+
+        stopCameraBtn.addEventListener('click', () => {
+            stopCamera(video);
+            cameraRunning = false;
+            startCameraBtn.style.display = 'inline-block';
+            stopCameraBtn.style.display = 'none';
+            analyzeLiveBtn.style.display = 'none';
+            setCameraStatus('Camera stopped', '#999');
+        });
+
+        analyzeLiveBtn.addEventListener('click', async () => {
+            if (!cameraRunning) return;
+            
+            setCameraStatus('Analyzing...', '#fbbf24');
+            analyzeLiveBtn.disabled = true;
+            showStep(2);
+            
+            try {
+                const result = await runLiveSkinAnalysis(video, canvas, {
+                    roboflowKey: null,
+                    roboflowModel: null
+                });
+                
+                if (result.error) {
+                    showError(result.error);
+                    showStep(1);
+                    analyzeLiveBtn.disabled = false;
+                    return;
+                }
+                
+                const { skinData: mlData, needsFallback } = result;
+                
+                if (needsFallback) {
+                    console.log('Low confidence, using Gemini fallback...');
+                    
+                    canvas.toBlob(async (blob) => {
+                        const formData = new FormData();
+                        formData.append('image', blob, 'face.jpg');
+                        formData.append('mlData', JSON.stringify(mlData));
+                        
+                        const response = await fetch(`${API_URL}/analyzeSkinML`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Analysis failed');
+                        }
+                        
+                        const data = await response.json();
+                        skinData = convertMLDataToLegacyFormat(data.skinData);
+                        
+                        displaySkinData();
+                        await loadQuiz();
+                        showStep(3);
+                        analyzeLiveBtn.disabled = false;
+                    }, 'image/jpeg', 0.8);
+                } else {
+                    skinData = convertMLDataToLegacyFormat(mlData);
+                    displaySkinData();
+                    await loadQuiz();
+                    showStep(3);
+                    analyzeLiveBtn.disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                showError('Analysis failed: ' + error.message);
+                showStep(1);
+                analyzeLiveBtn.disabled = false;
+            }
+        });
+
+        // Convert ML format to legacy format for quiz/results
+        function convertMLDataToLegacyFormat(mlData) {
+            console.log('Converting ML data:', mlData);
+            
+            // Handle both ML format and legacy format
+            const converted = {
+                tone: mlData.tone || `${mlData.fitzpatrick?.tone || 'medium'} ${mlData.fitzpatrick?.undertone || 'neutral'}`,
+                oiliness: mlData.oiliness?.overall || mlData.oiliness || 'normal',
+                texture: mlData.texture?.overall || mlData.texture || 'smooth',
+                concerns: Array.isArray(mlData.concerns) 
+                    ? (mlData.concerns[0]?.name ? mlData.concerns.map(c => c.name) : mlData.concerns)
+                    : [],
+                undertone: mlData.fitzpatrick?.undertone || mlData.undertone || 'neutral'
+            };
+            
+            // Ensure concerns is not empty
+            if (converted.concerns.length === 0) {
+                converted.concerns = ['general skin health'];
+            }
+            
+            console.log('Converted to legacy format:', converted);
+            return converted;
+        }
+
+        // Upload Photo Logic
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const preview = document.getElementById('preview');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-
-        console.log('Elements loaded:', { uploadArea, fileInput, preview, analyzeBtn });
+        const analyzeUploadBtn = document.getElementById('analyzeUploadBtn');
 
         uploadArea.addEventListener('click', () => fileInput.click());
 
@@ -369,13 +619,13 @@
             reader.onload = (e) => {
                 preview.src = e.target.result;
                 preview.style.display = 'block';
-                analyzeBtn.style.display = 'block';
+                analyzeUploadBtn.style.display = 'block';
                 console.log('Preview loaded');
             };
             reader.readAsDataURL(file);
         }
 
-        analyzeBtn.addEventListener('click', async () => {
+        analyzeUploadBtn.addEventListener('click', async () => {
             if (!selectedFile) {
                 console.error('No file selected');
                 return;
@@ -430,13 +680,19 @@
 
         async function loadQuiz() {
             try {
+                console.log('Loading quiz with skinData:', skinData);
+                
                 const response = await fetch(`${API_URL}/generateQuiz`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ skinData })
                 });
 
-                if (!response.ok) throw new Error('Failed to generate quiz');
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Quiz generation failed:', errorText);
+                    throw new Error('Failed to generate quiz: ' + errorText);
+                }
 
                 const data = await response.json();
                 questions = data.questions;
@@ -444,6 +700,7 @@
 
                 displayQuestions();
             } catch (error) {
+                console.error('Quiz error details:', error);
                 showError('Failed to load questions: ' + error.message);
             }
         }

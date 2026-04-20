@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMNICA Live Camera Analysis</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 900px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto 20px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+    }
+    video {
+      width: 100%;
+      display: block;
+    }
+    canvas {
+      display: none;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    .btn-secondary:hover { background: #d0d0d0; }
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+    .btn-success:hover { background: #38a169; }
+    .status {
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+    .status.info { background: #bee3f8; color: #2c5282; }
+    .status.success { background: #c6f6d5; color: #22543d; }
+    .status.error { background: #fed7d7; color: #742a2a; }
+    .results {
+      display: none;
+      background: #f7fafc;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .results.show { display: block; }
+    .result-section {
+      margin-bottom: 15px;
+    }
+    .result-section h3 {
+      color: #667eea;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    .result-section p {
+      color: #4a5568;
+      line-height: 1.6;
+    }
+    .confidence-bar {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #48bb78, #38a169);
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌟 LUMNICA Live Camera Analysis</h1>
+    <p class="subtitle">On-device ML + Gemini Vision fallback</p>
+    
+    <div class="video-container">
+      <video id="video" autoplay playsinline></video>
+      <canvas id="canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+      <button id="startBtn" class="btn-primary">Start Camera</button>
+      <button id="stopBtn" class="btn-secondary" disabled>Stop Camera</button>
+      <button id="analyzeBtn" class="btn-success" disabled>Analyze Now</button>
+    </div>
+    
+    <div id="status" class="status info">
+      Click "Start Camera" to begin
+    </div>
+    
+    <div id="results" class="results">
+      <div class="result-section">
+        <h3>Skin Tone</h3>
+        <p id="skinTone">-</p>
+      </div>
+      <div class="result-section">
+        <h3>Oiliness</h3>
+        <p id="oiliness">-</p>
+      </div>
+      <div class="result-section">
+        <h3>Texture</h3>
+        <p id="texture">-</p>
+      </div>
+      <div class="result-section">
+        <h3>Concerns</h3>
+        <p id="concerns">-</p>
+      </div>
+      <div class="result-section">
+        <h3>Confidence</h3>
+        <p id="confidence">-</p>
+        <div class="confidence-bar">
+          <div id="confidenceFill" class="confidence-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      startCamera,
+      stopCamera,
+      initFaceMesh,
+      runLiveSkinAnalysis,
+      captureFaceCrop
+    } from './ml-engine.js';
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const status = document.getElementById('status');
+    const results = document.getElementById('results');
+
+    let isRunning = false;
+    let faceMeshReady = false;
+
+    function setStatus(message, type = 'info') {
+      status.textContent = message;
+      status.className = `status ${type}`;
+    }
+
+    startBtn.addEventListener('click', async () => {
+      setStatus('Initializing camera...', 'info');
+      
+      const cameraResult = await startCamera(video);
+      if (!cameraResult.success) {
+        setStatus('Camera access denied: ' + cameraResult.error, 'error');
+        return;
+      }
+      
+      setStatus('Loading face detection model...', 'info');
+      await initFaceMesh();
+      faceMeshReady = true;
+      
+      isRunning = true;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      analyzeBtn.disabled = false;
+      
+      setStatus('Camera ready! Click "Analyze Now" to scan your skin', 'success');
+    });
+
+    stopBtn.addEventListener('click', () => {
+      stopCamera(video);
+      isRunning = false;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      analyzeBtn.disabled = true;
+      results.classList.remove('show');
+      setStatus('Camera stopped', 'info');
+    });
+
+    analyzeBtn.addEventListener('click', async () => {
+      if (!isRunning || !faceMeshReady) return;
+      
+      setStatus('Analyzing your skin...', 'info');
+      analyzeBtn.disabled = true;
+      
+      try {
+        const result = await runLiveSkinAnalysis(video, canvas, {
+          roboflowKey: null,  // Add your Roboflow API key here
+          roboflowModel: null // Add your model ID here
+        });
+        
+        if (result.error) {
+          setStatus(result.error, 'error');
+          analyzeBtn.disabled = false;
+          return;
+        }
+        
+        const { skinData, needsFallback } = result;
+        
+        // If low confidence, call backend for Gemini fallback
+        if (needsFallback) {
+          setStatus('Low confidence, using Gemini Vision fallback...', 'info');
+          
+          canvas.toBlob(async (blob) => {
+            const formData = new FormData();
+            formData.append('image', blob, 'face.jpg');
+            formData.append('mlData', JSON.stringify(skinData));
+            
+            const response = await fetch('/api/analyzeSkinML', {
+              method: 'POST',
+              body: formData
+            });
+            
+            const data = await response.json();
+            displayResults(data.skinData);
+            setStatus('Analysis complete (Gemini fallback)', 'success');
+            analyzeBtn.disabled = false;
+          }, 'image/jpeg', 0.8);
+        } else {
+          displayResults(skinData);
+          setStatus('Analysis complete (on-device ML)', 'success');
+          analyzeBtn.disabled = false;
+        }
+        
+      } catch (err) {
+        console.error('Analysis error:', err);
+        setStatus('Analysis failed: ' + err.message, 'error');
+        analyzeBtn.disabled = false;
+      }
+    });
+
+    function displayResults(data) {
+      document.getElementById('skinTone').textContent = 
+        `${data.fitzpatrick?.tone || 'N/A'} (Type ${data.fitzpatrick?.type || 'N/A'}), ${data.fitzpatrick?.undertone || 'N/A'} undertone`;
+      
+      document.getElementById('oiliness').textContent = 
+        `${data.oiliness?.overall || 'N/A'} (T-zone: ${data.oiliness?.tZone || 'N/A'}, Cheeks: ${data.oiliness?.cheeks || 'N/A'}, Pores: ${data.oiliness?.poreSize || 'N/A'})`;
+      
+      document.getElementById('texture').textContent = 
+        `${data.texture?.overall || 'N/A'}`;
+      
+      const concernsList = data.concerns?.map(c => `${c.name} (${c.severity})`).join(', ') || 'None detected';
+      document.getElementById('concerns').textContent = concernsList;
+      
+      const confScore = data.confidence?.score || 0;
+      document.getElementById('confidence').textContent = 
+        `${(confScore * 100).toFixed(0)}% (${data.confidence?.source || 'unknown'})`;
+      document.getElementById('confidenceFill').style.width = `${confScore * 100}%`;
+      
+      results.classList.add('show');
+    }
+  </script>
+</body>
+</html>

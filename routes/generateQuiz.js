@@ -33,16 +33,22 @@ router.post('/', async (req, res) => {
     const { skinData } = req.body;
 
     if (!skinData) {
+      console.error('Missing skinData in request');
       return res.status(400).json({ error: 'skinData is required' });
     }
+
+    console.log('Generating quiz for skinData:', JSON.stringify(skinData, null, 2));
 
     let dynamicQuestions;
 
     if (DEMO_MODE) {
+      console.log('Using DEMO_MODE questions');
       dynamicQuestions = DEMO_QUESTIONS;
     } else {
       // === REAL MODE: Gemini generates questions ===
+      console.log('Calling Gemini to generate questions...');
       dynamicQuestions = await generateQuizQuestions(skinData);
+      console.log('Gemini returned questions:', dynamicQuestions);
 
       // === CLAUDE MODE (alternative paid option) ===
       // dynamicQuestions = await generateQuizQuestionsWithClaude(skinData);
@@ -52,8 +58,9 @@ router.post('/', async (req, res) => {
 
     res.json({ questions: allQuestions });
   } catch (err) {
-    console.error('generateQuiz error:', err);
-    res.status(500).json({ error: 'Quiz generation failed. Please try again.' });
+    console.error('generateQuiz error:', err.message);
+    console.error('Stack trace:', err.stack);
+    res.status(500).json({ error: 'Quiz generation failed: ' + err.message });
   }
 });
 

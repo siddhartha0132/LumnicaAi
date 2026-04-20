@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const analyzeSkinRoute = require('./routes/analyzeSkin');
+const analyzeSkinMLRoute = require('./routes/analyzeSkinML');
 const generateQuizRoute = require('./routes/generateQuiz');
 const analyzeResultsRoute = require('./routes/analyzeResults');
 
@@ -33,6 +34,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 app.use('/api/analyzeSkin', analyzeSkinRoute);
+app.use('/api/analyzeSkinML', analyzeSkinMLRoute);
 app.use('/api/generateQuiz', generateQuizRoute);
 app.use('/api/analyzeResults', analyzeResultsRoute);
 

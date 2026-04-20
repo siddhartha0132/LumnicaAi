@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { getQuizPrompt } = require('../prompts/quizPrompt');
 const { getAnalysisPrompt } = require('../prompts/analysisPrompt');
-const { getSkinAnalysisPrompt } = require('../prompts/skinAnalysisPrompt');
+const { getSkinAnalysisPrompt, getSkinAnalysisFallbackPrompt } = require('../prompts/skinAnalysisPrompt');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -84,6 +84,11 @@ async function analyzeSkinFromImage(imageBase64, mimeType) {
   return await callGeminiVision(prompt, imageBase64, mimeType);
 }
 
+async function analyzeSkinFromImageFallback(imageBase64, mimeType, partialMLData) {
+  const prompt = getSkinAnalysisFallbackPrompt(partialMLData);
+  return await callGeminiVision(prompt, imageBase64, mimeType);
+}
+
 async function generateQuizQuestions(skinData) {
   const prompt = getQuizPrompt(skinData);
   const result = await callGemini(prompt);
@@ -102,6 +107,7 @@ async function analyzeResults(skinData, answers) {
 
 module.exports = {
   analyzeSkinFromImage,
+  analyzeSkinFromImageFallback,
   generateQuizQuestions,
   analyzeResults,
 };

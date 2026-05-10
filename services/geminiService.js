@@ -11,8 +11,8 @@ if (!GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Using gemini-flash-latest which is the correct model identifier
-const MODEL_NAME = 'gemini-flash-latest';
+// Using gemini-2.5-flash for best vision + accuracy
+const MODEL_NAME = 'gemini-2.5-flash';
 
 /**
  * Strips markdown fences and extracts the first valid JSON object from a string.

@@ -668,13 +668,18 @@
 
         function displaySkinData() {
             const display = document.getElementById('skinDataDisplay');
+            const hex = skinData.approximateHex || null;
+            const swatchHtml = hex
+                ? `<div style="display:inline-block; width:28px; height:28px; border-radius:50%; background:${hex}; border:2px solid #ccc; vertical-align:middle; margin-right:8px;" title="${hex}"></div><code style="font-size:0.85em;color:#555;">${hex}</code>`
+                : '';
             display.innerHTML = `
                 <h3>📊 Skin Analysis Results</h3>
-                <p><strong>Tone:</strong> ${skinData.tone}</p>
+                <p><strong>Tone:</strong> ${skinData.tone}${skinData.fitzpatrickType ? ' &nbsp;·&nbsp; Fitzpatrick <strong>' + skinData.fitzpatrickType + '</strong>' : ''}</p>
+                ${hex ? `<p><strong>Skin Color:</strong> &nbsp;${swatchHtml}</p>` : ''}
+                <p><strong>Undertone:</strong> ${skinData.undertone}</p>
                 <p><strong>Oiliness:</strong> ${skinData.oiliness}</p>
                 <p><strong>Texture:</strong> ${skinData.texture}</p>
-                <p><strong>Concerns:</strong> ${skinData.concerns.join(', ')}</p>
-                <p><strong>Undertone:</strong> ${skinData.undertone}</p>
+                <p><strong>Concerns:</strong> ${Array.isArray(skinData.concerns) ? skinData.concerns.join(', ') : skinData.concerns}</p>
             `;
         }
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { generateQuizQuestions } = require('../services/geminiService');
-
+const nvidiaService = require('../services/nvidiaService');
 const DOSHA_QUESTIONS = [
   {
     question: 'What best describes your daily lifestyle?',
@@ -27,7 +27,17 @@ router.post('/', async (req, res) => {
 
     console.log('[generateQuiz] skinData received:', JSON.stringify(skinData, null, 2));
 
-    const dynamicQuestions = await generateQuizQuestions(skinData);
+    let dynamicQuestions;
+
+    if (nvidiaService.isConfigured()) {
+      console.log('[generateQuiz] PRIMARY: Using NVIDIA Nemotron to generate quiz');
+      const response = await nvidiaService.generateQuizQuestions(skinData);
+      dynamicQuestions = response.questions;
+    } else {
+      console.log('[generateQuiz] FALLBACK: Using Gemini to generate quiz');
+      dynamicQuestions = await generateQuizQuestions(skinData);
+    }
+
     const allQuestions = [...dynamicQuestions, ...DOSHA_QUESTIONS];
 
     res.json({ questions: allQuestions });

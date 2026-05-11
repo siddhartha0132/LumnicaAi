@@ -59,8 +59,13 @@ router.post('/', async (req, res, next) => {
     if (config.demo.enabled) {
       analysis = DEMO_RESPONSE;
     } else {
-      logger.debug('Using Gemini for analysis');
-      analysis = await analyzeResults(skinData, answers);
+      if (nvidiaService.isConfigured()) {
+        logger.debug('Using NVIDIA Nemotron for final analysis');
+        analysis = await nvidiaService.analyzeResults(skinData, answers);
+      } else {
+        logger.debug('Using Gemini for final analysis');
+        analysis = await analyzeResults(skinData, answers);
+      }
 
       // Only include products if SUGGEST_PRODUCTS is enabled
       if (suggestProducts && analysis.products && analysis.products.length > 0) {

@@ -23,13 +23,17 @@ const nvidiaService = {
       .replace(/^[^{[]+/, '')
       .trim();
 
-    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    let jsonStr = stripped.match(/\{[\s\S]*\}/)?.[0] || stripped;
+    
+    // Remove C-style comments (/* ... */ and // ...)
+    jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+    if (!jsonStr.trim().startsWith('{') && !jsonStr.trim().startsWith('[')) {
       throw new AppError('AI response did not contain valid JSON', 500);
     }
 
     try {
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonStr);
     } catch (err) {
       throw new AppError(`Failed to parse AI JSON response: ${err.message}`, 500);
     }
@@ -187,7 +191,7 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 2048,
+        max_tokens: 8192,
         stream: false,
         extra_body: {
           chat_template_kwargs: { enable_thinking: true },
@@ -201,7 +205,8 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
         timeout: 120000, // 2 min — reasoning models take longer
       });
 
-      const content = response.data.choices?.[0]?.message?.content;
+      const message = response.data.choices?.[0]?.message;
+      const content = message?.content || message?.reasoning_content;
       if (!content) {
         throw new AppError('NVIDIA Vision returned empty response', 500);
       }

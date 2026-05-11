@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { analyzeSkinFromImageFallback } = require('../services/geminiService');
+const { analyzeSkinFromImageFallback, analyzeSkinFromImage } = require('../services/geminiService');
+const nvidiaService = require('../services/nvidiaService');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -43,23 +44,50 @@ router.post('/', upload.single('image'), async (req, res) => {
     const imageBase64 = req.file.buffer.toString('base64');
     const mimeType = req.file.mimetype;
 
-    // Use Gemini Vision - it returns flat format matching our schema
-    const { analyzeSkinFromImage } = require('../services/geminiService');
-    const geminiData = await analyzeSkinFromImage(imageBase64, mimeType);
+    // Stamp this request so we can verify uniqueness in logs
+    const uploadId = `${Date.now()}-${req.file.size}`;
+    console.log(`[ML Analysis] uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
 
-    console.log('[ML Analysis] Raw Gemini response:', JSON.stringify(geminiData, null, 2));
-    
+    let inner, imageConfidence;
+
+    // —— PRIMARY: NVIDIA Nemotron Omni (vision-capable reasoning model) ——
+    if (nvidiaService.isConfigured()) {
+      console.log('[ML Analysis] PRIMARY: NVIDIA Nemotron Omni vision analysis');
+      const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
+      inner = result.inner;
+      imageConfidence = result.imageConfidence;
+    } else {
+      // —— FALLBACK: Gemini Vision ——
+      console.log('[ML Analysis] FALLBACK: Gemini Vision (NVIDIA not configured)');
+      const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
+      console.log('[ML Analysis] RAW Gemini response:', JSON.stringify(rawResult, null, 2));
+      inner = rawResult.skinData || rawResult;
+      imageConfidence = rawResult.imageConfidence || 'unknown';
+    }
+
+    // ⚠️  Hardcoded-value detector — fires if model slips back to generic defaults
+    const HARDCODED_TONES = ['medium', 'fair', 'dark', 'light'];
+    const HARDCODED_OILINESS = ['balanced', 'combination', 'oily', 'dry', 'normal'];
+    const HARDCODED_CONCERNS = ['hydration', 'fine lines', 'general skin health'];
+    const isHardcodedTone = HARDCODED_TONES.includes((inner.tone || '').toLowerCase().trim());
+    const isHardcodedOiliness = HARDCODED_OILINESS.includes((inner.oiliness || '').toLowerCase().trim());
+    const hasHardcodedConcern = Array.isArray(inner.concerns) &&
+      inner.concerns.some(c => HARDCODED_CONCERNS.includes((c || '').toLowerCase().trim()));
+
+    if (isHardcodedTone || isHardcodedOiliness || hasHardcodedConcern) {
+      console.warn('⚠️  [ML Analysis] WARNING: Model returned hardcoded/generic values!');
+      console.warn('    tone:', inner.tone, '| oiliness:', inner.oiliness, '| concerns:', inner.concerns);
+    }
+
     // Normalize the data to ensure consistent format
-    // Gemini should return: { tone, fitzpatrickType, approximateHex, oiliness, texture, concerns, undertone, confidence }
     const normalizedData = {
-      tone: geminiData.tone || 'medium',
-      fitzpatrickType: geminiData.fitzpatrickType || 'III',
-      approximateHex: geminiData.approximateHex || '#C68642',
-      oiliness: geminiData.oiliness || 'normal',
-      texture: geminiData.texture || 'smooth',
-      concerns: Array.isArray(geminiData.concerns) ? geminiData.concerns : ['general skin health'],
-      undertone: geminiData.undertone || 'neutral',
-      confidence: geminiData.confidence || { score: 0.85, notes: 'Analysis complete' }
+      tone: inner.tone || 'unable to determine',
+      oiliness: inner.oiliness || 'unable to determine',
+      texture: inner.texture || 'unable to determine',
+      concerns: Array.isArray(inner.concerns) ? inner.concerns : ['none visible'],
+      undertone: inner.undertone || 'unable to determine',
+      imageConfidence,
+      _uploadId: uploadId,
     };
     
     console.log('[ML Analysis] Normalized data:', JSON.stringify(normalizedData, null, 2));

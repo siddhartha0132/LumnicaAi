@@ -28,11 +28,12 @@ router.post('/', upload.single('image'), async (req, res) => {
     if (config.demo.enabled) {
       console.log('[analyzeSkin] Running in DEMO_MODE');
       skinData = {
-        tone: 'medium warm',
-        oiliness: 'combination',
-        texture: 'slightly uneven',
-        concerns: ['acne scars', 'dark spots', 'enlarged pores'],
-        undertone: 'warm golden',
+        tone: 'light beige with warm peach tones (80% even, 20% redness around nose)',
+        oiliness: 'T-zone: 6/10 oily, Cheeks: 2/10 dry',
+        texture: 'slightly uneven with visible pores around nose, smooth on cheeks',
+        concerns: ['mild redness on nose bridge', 'slightly enlarged pores'],
+        undertone: 'warm',
+        imageConfidence: 'demo',
       };
     } else {
       const imageBase64 = req.file.buffer.toString('base64');
@@ -50,18 +51,24 @@ router.post('/', upload.single('image'), async (req, res) => {
         skinData = await analyzeSkinFromImage(imageBase64, mimeType); // replace with nvidia vision call when available
       } else {
         console.log('[analyzeSkin] Using Gemini Vision for skin analysis');
-        skinData = await analyzeSkinFromImage(imageBase64, mimeType);
-        
+        const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
+
+        // ANTI_GRAVITY_PROMPT returns { skinData: { ... }, imageConfidence: '...' }
+        // Unwrap the nested skinData if present, otherwise fall back to flat structure
+        const inner = rawResult.skinData || rawResult;
+        const imageConfidence = rawResult.imageConfidence || 'unknown';
+
+        console.log('[analyzeSkin] imageConfidence:', imageConfidence);
+        console.log('[analyzeSkin] inner skinData:', JSON.stringify(inner, null, 2));
+
         // Normalize to ensure all required fields
         skinData = {
-          tone: skinData.tone || 'medium',
-          fitzpatrickType: skinData.fitzpatrickType || 'III',
-          approximateHex: skinData.approximateHex || '#C68642',
-          oiliness: skinData.oiliness || 'normal',
-          texture: skinData.texture || 'smooth',
-          concerns: Array.isArray(skinData.concerns) ? skinData.concerns : ['general skin health'],
-          undertone: skinData.undertone || 'neutral',
-          confidence: skinData.confidence || { score: 0.85, notes: 'Analysis complete' }
+          tone: inner.tone || 'unable to determine',
+          oiliness: inner.oiliness || 'unable to determine',
+          texture: inner.texture || 'unable to determine',
+          concerns: Array.isArray(inner.concerns) ? inner.concerns : ['none visible'],
+          undertone: inner.undertone || 'unable to determine',
+          imageConfidence,
         };
       }
 

@@ -48,7 +48,16 @@ router.post('/', upload.single('image'), async (req, res) => {
     const { analyzeSkinFromImage } = require('../services/geminiService');
     const geminiData = await analyzeSkinFromImage(imageBase64, mimeType);
 
-    console.log('[ML Analysis] Gemini Vision analysis complete:', geminiData);
+    console.log('[ML Analysis] Gemini Vision analysis complete:', JSON.stringify(geminiData, null, 2));
+    
+    // Ensure all required fields are present
+    if (!geminiData.fitzpatrickType || !geminiData.approximateHex) {
+      console.warn('[ML Analysis] Gemini returned incomplete data, adding defaults');
+      geminiData.fitzpatrickType = geminiData.fitzpatrickType || 'III';
+      geminiData.approximateHex = geminiData.approximateHex || '#C68642';
+      geminiData.confidence = geminiData.confidence || { score: 0.7, notes: 'Partial data from analysis' };
+    }
+    
     res.json({ skinData: geminiData });
 
   } catch (err) {

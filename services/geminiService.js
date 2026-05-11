@@ -81,7 +81,9 @@ async function callGeminiVision(prompt, imageBase64, mimeType) {
 
 async function analyzeSkinFromImage(imageBase64, mimeType) {
   const prompt = getSkinAnalysisPrompt();
-  return await callGeminiVision(prompt, imageBase64, mimeType);
+  const result = await callGeminiVision(prompt, imageBase64, mimeType);
+  console.log('[analyzeSkinFromImage] Full result:', JSON.stringify(result, null, 2));
+  return result;
 }
 
 async function analyzeSkinFromImageFallback(imageBase64, mimeType, partialMLData) {

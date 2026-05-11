@@ -2,6 +2,10 @@ const axios = require('axios');
 const config = require('../config');
 const logger = require('../utils/logger');
 const { AppError } = require('../middleware/errorHandler');
+const { getSkinAnalysisPrompt } = require('../prompts/skinAnalysisPrompt');
+
+// Vision model for image analysis (multimodal)
+const VISION_MODEL = process.env.NVIDIA_VISION_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
 
 const nvidiaService = {
   isConfigured() {
@@ -147,6 +151,84 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
 
     return result;
   },
+  /**
+   * Analyzes a skin image using NVIDIA Nemotron Omni (multimodal vision model).
+   * Sends the image as base64 inline data via OpenAI-compatible chat format.
+   */
+  async analyzeSkinFromImage(imageBase64, mimeType) {
+    if (!this.isConfigured()) {
+      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
+    }
+
+    const prompt = getSkinAnalysisPrompt();
+    const endpoint = `${config.providers.nvidia.baseUrl}/chat/completions`;
+
+    logger.debug(`[NVIDIA Vision] POST ${endpoint}`, { model: VISION_MODEL });
+    console.log(`[NVIDIA Vision] Analyzing image | model=${VISION_MODEL} | mime=${mimeType}`);
+
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${imageBase64}`,
+            },
+          },
+        ],
+      },
+    ];
+
+    try {
+      const response = await axios.post(endpoint, {
+        model: VISION_MODEL,
+        messages,
+        temperature: 0.6,
+        top_p: 0.95,
+        max_tokens: 2048,
+        stream: false,
+        extra_body: {
+          chat_template_kwargs: { enable_thinking: true },
+          reasoning_budget: 4096,
+        },
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.providers.nvidia.apiKey}`,
+        },
+        timeout: 120000, // 2 min — reasoning models take longer
+      });
+
+      const content = response.data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new AppError('NVIDIA Vision returned empty response', 500);
+      }
+
+      console.log('[NVIDIA Vision] Raw response (first 600 chars):', content.substring(0, 600));
+
+      const parsed = this.extractJSON(content);
+
+      // ANTI_GRAVITY_PROMPT returns { skinData: {...}, imageConfidence: '...' }
+      // Unwrap if nested, fall back to flat
+      const inner = parsed.skinData || parsed;
+      const imageConfidence = parsed.imageConfidence || 'unknown';
+
+      console.log('[NVIDIA Vision] imageConfidence:', imageConfidence);
+      return { inner, imageConfidence };
+
+    } catch (err) {
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data?.detail || err.response.data?.error?.message || JSON.stringify(err.response.data);
+        logger.error(`[NVIDIA Vision] API error ${status}: ${data}`);
+        throw new AppError(`NVIDIA Vision error (${status}): ${data}`, 500);
+      }
+      throw new AppError(`NVIDIA Vision request failed: ${err.message}`, 500);
+    }
+  },
+
   async generateQuizQuestions(skinData) {
     // Extract all available data
     const tone = skinData.tone || 'unknown';

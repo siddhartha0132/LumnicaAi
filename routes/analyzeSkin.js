@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { analyzeSkinFromImage } = require('../services/geminiService');
+const nvidiaService = require('../services/nvidiaService');
 const config = require('../config');
 
 const upload = multer({
@@ -52,17 +53,26 @@ router.post('/', upload.single('image'), async (req, res) => {
       } else {
         // Stamp this request so we can verify uniqueness in logs
         const uploadId = `${Date.now()}-${req.file.size}`;
-        console.log(`[analyzeSkin] Using Gemini Vision | uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
+        console.log(`[analyzeSkin] uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
 
-        const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
-        console.log('[analyzeSkin] RAW Gemini result:', JSON.stringify(rawResult, null, 2));
+        let inner, imageConfidence;
 
-        // ANTI_GRAVITY_PROMPT returns { skinData: { ... }, imageConfidence: '...' }
-        // Unwrap the nested skinData if present, otherwise fall back to flat structure
-        const inner = rawResult.skinData || rawResult;
-        const imageConfidence = rawResult.imageConfidence || 'unknown';
+        // —— PRIMARY: NVIDIA Nemotron Omni (vision-capable reasoning model) ——
+        if (nvidiaService.isConfigured()) {
+          console.log('[analyzeSkin] PRIMARY: NVIDIA Nemotron Omni vision analysis');
+          const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
+          inner = result.inner;
+          imageConfidence = result.imageConfidence;
+        } else {
+          // —— FALLBACK: Gemini Vision ——
+          console.log('[analyzeSkin] FALLBACK: Gemini Vision (NVIDIA not configured)');
+          const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
+          console.log('[analyzeSkin] RAW Gemini result:', JSON.stringify(rawResult, null, 2));
+          inner = rawResult.skinData || rawResult;
+          imageConfidence = rawResult.imageConfidence || 'unknown';
+        }
 
-        // ⚠️  Hardcoded-value detector — fires if Gemini slips back to generic defaults
+        // ⚠️  Hardcoded-value detector — fires if model slips back to generic defaults
         const HARDCODED_TONES = ['medium', 'fair', 'dark', 'light'];
         const HARDCODED_OILINESS = ['balanced', 'combination', 'oily', 'dry', 'normal'];
         const HARDCODED_CONCERNS = ['hydration', 'fine lines', 'general skin health'];
@@ -72,9 +82,8 @@ router.post('/', upload.single('image'), async (req, res) => {
           inner.concerns.some(c => HARDCODED_CONCERNS.includes((c || '').toLowerCase().trim()));
 
         if (isHardcodedTone || isHardcodedOiliness || hasHardcodedConcern) {
-          console.warn('⚠️  [analyzeSkin] WARNING: Gemini returned hardcoded/generic values!');
+          console.warn('⚠️  [analyzeSkin] WARNING: Model returned hardcoded/generic values!');
           console.warn('    tone:', inner.tone, '| oiliness:', inner.oiliness, '| concerns:', inner.concerns);
-          console.warn('    This means the prompt may not be reaching the model correctly.');
         }
 
         // Normalize to ensure all required fields

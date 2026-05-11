@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { generateQuizQuestions } = require('../services/geminiService');
+const nvidiaService = require('../services/nvidiaService');
 // const { generateQuizQuestionsWithClaude } = require('../services/claudeService');
 
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
@@ -45,13 +46,21 @@ router.post('/', async (req, res) => {
       console.log('Using DEMO_MODE questions');
       dynamicQuestions = DEMO_QUESTIONS;
     } else {
-      // === REAL MODE: Gemini generates questions ===
-      console.log('Calling Gemini to generate questions...');
-      dynamicQuestions = await generateQuizQuestions(skinData);
-      console.log('Gemini returned questions:', dynamicQuestions);
-
-      // === CLAUDE MODE (alternative paid option) ===
-      // dynamicQuestions = await generateQuizQuestionsWithClaude(skinData);
+      // Try NVIDIA LLaMA first (text model — fast & cheap for quiz generation)
+      if (nvidiaService.isConfigured()) {
+        try {
+          console.log('[generateQuiz] Using NVIDIA LLaMA for quiz generation...');
+          const result = await nvidiaService.generateQuizQuestions(skinData);
+          dynamicQuestions = result.questions;
+          console.log('[generateQuiz] NVIDIA returned questions:', dynamicQuestions.length);
+        } catch (nvidiaErr) {
+          console.warn('[generateQuiz] NVIDIA failed, falling back to Gemini:', nvidiaErr.message);
+          dynamicQuestions = await generateQuizQuestions(skinData);
+        }
+      } else {
+        console.log('[generateQuiz] NVIDIA not configured, using Gemini...');
+        dynamicQuestions = await generateQuizQuestions(skinData);
+      }
     }
 
     const allQuestions = [...dynamicQuestions, ...DOSHA_QUESTIONS];

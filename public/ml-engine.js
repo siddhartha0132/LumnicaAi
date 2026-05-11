@@ -381,7 +381,10 @@ export async function runLiveSkinAnalysis(videoEl, canvasEl, config = {}) {
     }
   };
   
-  return { skinData, needsFallback: confidence < 0.75 };
+  // Always send to Gemini Vision for accurate AI analysis.
+  // On-device ML (pixel math) is too basic for reliable concern/oiliness detection.
+  // Gemini Vision provides individualized, clinically-accurate results every time.
+  return { skinData, needsFallback: true };
 }
 
 function computeConfidence(landmarks, regions, toneData) {

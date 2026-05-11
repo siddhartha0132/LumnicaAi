@@ -503,12 +503,14 @@
                     return;
                 }
                 
-                const { skinData: mlData, needsFallback } = result;
+                const { skinData: mlData } = result;
                 
-                if (needsFallback) {
-                    console.log('Low confidence, using Gemini fallback...');
-                    
-                    canvas.toBlob(async (blob) => {
+                // Always send captured frame + on-device hints to Gemini Vision for
+                // accurate, individualized analysis (same pipeline as Upload Photo).
+                console.log('Sending captured frame to Gemini Vision for analysis...');
+                
+                canvas.toBlob(async (blob) => {
+                    try {
                         const formData = new FormData();
                         formData.append('image', blob, 'face.jpg');
                         formData.append('mlData', JSON.stringify(mlData));
@@ -519,24 +521,25 @@
                         });
                         
                         if (!response.ok) {
-                            throw new Error('Analysis failed');
+                            const errText = await response.text();
+                            throw new Error('Analysis failed: ' + errText);
                         }
                         
                         const data = await response.json();
-                        skinData = convertMLDataToLegacyFormat(data.skinData);
+                        // Gemini returns flat format: {tone, oiliness, texture, concerns, undertone, ...}
+                        skinData = data.skinData;
                         
                         displaySkinData();
                         await loadQuiz();
                         showStep(3);
                         analyzeLiveBtn.disabled = false;
-                    }, 'image/jpeg', 0.8);
-                } else {
-                    skinData = convertMLDataToLegacyFormat(mlData);
-                    displaySkinData();
-                    await loadQuiz();
-                    showStep(3);
-                    analyzeLiveBtn.disabled = false;
-                }
+                    } catch (innerErr) {
+                        console.error('Gemini analysis error:', innerErr);
+                        showError('Analysis failed: ' + innerErr.message);
+                        showStep(1);
+                        analyzeLiveBtn.disabled = false;
+                    }
+                }, 'image/jpeg', 0.92);
                 
             } catch (error) {
                 console.error('Analysis error:', error);

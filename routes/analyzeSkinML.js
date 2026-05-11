@@ -26,39 +26,31 @@ const upload = multer({
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     const mlData = req.body.mlData ? JSON.parse(req.body.mlData) : null;
-    
+
     if (!mlData) {
       return res.status(400).json({ error: 'Missing mlData in request' });
     }
-    
-    const confidence = mlData.confidence?.score || 0;
-    
-    // If ML confidence is high enough, use it directly
-    if (confidence >= 0.75) {
-      console.log('[ML Analysis] High confidence, using on-device results');
-      return res.json({ skinData: mlData });
-    }
-    
-    // Low confidence — fallback to Gemini Vision
+
+    // Always require the image — we always call Gemini Vision for accuracy.
+    // On-device ML (pixel math) alone is not reliable enough for final results.
     if (!req.file) {
-      return res.status(400).json({ 
-        error: 'Low ML confidence and no image provided for fallback' 
+      return res.status(400).json({
+        error: 'Image is required for skin analysis'
       });
     }
-    
-    console.log('[ML Analysis] Low confidence, calling Gemini fallback...');
+
+    console.log('[ML Analysis] Sending to Gemini Vision for accurate analysis...');
     const imageBase64 = req.file.buffer.toString('base64');
     const mimeType = req.file.mimetype;
-    
-    const geminiData = await analyzeSkinFromImageFallback(
-      imageBase64, 
-      mimeType, 
-      mlData
-    );
-    
-    console.log('[ML Analysis] Gemini fallback complete');
+
+    // Use Gemini Vision with the on-device ML data as supplementary context.
+    // Gemini analyzes what it ACTUALLY sees in the image — not ML pixel averages.
+    const { analyzeSkinFromImage } = require('../services/geminiService');
+    const geminiData = await analyzeSkinFromImage(imageBase64, mimeType);
+
+    console.log('[ML Analysis] Gemini Vision analysis complete:', geminiData);
     res.json({ skinData: geminiData });
-    
+
   } catch (err) {
     console.error('[ML Analysis] Error:', err);
     res.status(500).json({ error: 'Skin analysis failed: ' + err.message });

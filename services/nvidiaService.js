@@ -131,6 +131,33 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
 
     return result;
   },
+  async generateQuizQuestions(skinData) {
+    const prompt = `You are an Ayurvedic skin expert. Based on this person's skin analysis, generate 5 highly personalized quiz questions to determine their Ayurvedic dosha and create a tailored skincare routine.
+
+SKIN DATA:
+- Tone: ${skinData.tone || 'unknown'}
+- Oiliness: ${skinData.oiliness || 'unknown'}
+- Texture: ${skinData.texture || 'unknown'}
+- Undertone: ${skinData.undertone || 'unknown'}
+- Concerns: ${Array.isArray(skinData.concerns) ? skinData.concerns.join(', ') : skinData.concerns || 'none'}
+- Fitzpatrick Type: ${skinData.fitzpatrickType || 'unknown'}
+
+Generate 5 questions relevant to their specific concerns. Return ONLY valid JSON, no markdown:
+{
+  "questions": [
+    {
+      "question": "Question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"]
+    }
+  ]
+}`;
+
+    const response = await this.chat([{ role: 'user', content: prompt }], {
+      temperature: 0.6,
+      maxTokens: 1024,
+    });
+    return this.extractJSON(response);
+  },
 };
 
 module.exports = nvidiaService;

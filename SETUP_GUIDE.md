@@ -35,7 +35,7 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 DEMO_MODE=false
 
 # Server config
-PORT=5000
+PORT=5001
 NODE_ENV=production
 ```
 
@@ -45,7 +45,7 @@ NODE_ENV=production
 npm start
 ```
 
-Open browser: **http://localhost:5000**
+Open browser: **http://localhost:5001**
 
 ## 📋 How It Works
 
@@ -166,7 +166,7 @@ Just add your Gemini API key and start the server. Everything else is configured
 # 1. Get key from: https://aistudio.google.com/app/apikey
 # 2. Add to .env file
 # 3. npm start
-# 4. Open http://localhost:5000
+# 4. Open http://localhost:5001
 ```
 
 Enjoy your FREE AI-powered Ayurvedic skincare platform! 🌿✨

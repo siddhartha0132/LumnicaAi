@@ -1,58 +1,40 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const { analyzeSkinFromImage } = require('../services/geminiService');
+const { upload, handleUploadError } = require('../middleware/upload');
+const { analyzeSkinFromImage, getSkinAnalysisPrompt } = require('../services/geminiService');
+const config = require('../config');
+const logger = require('../utils/logger');
+const { AppError } = require('../middleware/errorHandler');
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/avif', 'image/webp'];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, AVIF, WEBP allowed.'));
-    }
-  },
-});
+const DEMO_SKIN_DATA = {
+  tone: 'medium warm',
+  fitzpatrickType: 'IV',
+  approximateHex: '#C68642',
+  oiliness: 'combination',
+  texture: 'slightly uneven',
+  concerns: ['enlarged pores', 'mild acne', 'post-acne marks'],
+  undertone: 'warm golden',
+};
 
-const DEMO_MODE = process.env.DEMO_MODE === 'true';
-
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.single('image'), handleUploadError, async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No image uploaded' });
+      throw new AppError('No image uploaded', 400);
     }
 
-    let skinData;
+    const skinData = config.demo.enabled
+      ? DEMO_SKIN_DATA
+      : await analyzeSkinFromImage(
+          req.file.buffer.toString('base64'),
+          req.file.mimetype,
+          getSkinAnalysisPrompt()
+        );
 
-    if (DEMO_MODE) {
-      console.log('Running in DEMO_MODE');
-      skinData = {
-        tone: 'medium warm',
-        oiliness: 'combination',
-        texture: 'slightly uneven',
-        concerns: ['acne scars', 'dark spots', 'enlarged pores'],
-        undertone: 'warm golden',
-      };
-    } else {
-      console.log('Calling Gemini API for skin analysis...');
-      const imageBase64 = req.file.buffer.toString('base64');
-      const mimeType = req.file.mimetype;
-      skinData = await analyzeSkinFromImage(imageBase64, mimeType);
-      console.log('Gemini analysis success:', skinData);
-    }
+    logger.info('Skin analysis complete', { tone: skinData.tone, fitzpatrick: skinData.fitzpatrickType });
 
     res.json({ skinData });
   } catch (err) {
-    // Log the REAL error, not just a generic message
-    console.error('analyzeSkin error details:', {
-      message: err.message,
-      stack: err.stack,
-      geminiKey: process.env.GEMINI_API_KEY ? 'SET (length: ' + process.env.GEMINI_API_KEY.length + ')' : 'NOT SET',
-      demoMode: process.env.DEMO_MODE,
-    });
-    res.status(500).json({ error: 'Skin analysis failed: ' + err.message });
+    next(err);
   }
 });
 

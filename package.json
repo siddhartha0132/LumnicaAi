@@ -1,21 +1,16 @@
 {
   "name": "lumnica-ai-backend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "AI-powered Ayurvedic skincare platform backend",
   "main": "server.js",
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js"
   },
-  "keywords": [
-    "ayurveda",
-    "skincare",
-    "ai"
-  ],
+  "keywords": ["ayurveda", "skincare", "ai", "gemini", "nvidia"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.89.0",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.6.2",
     "cors": "^2.8.5",

@@ -1,67 +1,44 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const { analyzeSkinFromImageFallback } = require('../services/geminiService');
+const { upload, handleUploadError } = require('../middleware/upload');
+const { analyzeSkinFromImageFallback, getSkinAnalysisFallbackPrompt } = require('../services/geminiService');
+const config = require('../config');
+const logger = require('../utils/logger');
+const { AppError } = require('../middleware/errorHandler');
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/avif', 'image/webp'];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, AVIF, WEBP allowed.'));
-    }
-  },
-});
-
-/**
- * POST /api/analyzeSkinML
- * 
- * Receives partial ML data from client-side analysis.
- * If confidence is low, calls Gemini Vision as fallback.
- * Otherwise, returns the ML data as-is.
- */
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.single('image'), handleUploadError, async (req, res, next) => {
   try {
-    const mlData = req.body.mlData ? JSON.parse(req.body.mlData) : null;
-    
-    if (!mlData) {
-      return res.status(400).json({ error: 'Missing mlData in request' });
+    let mlData;
+    try {
+      mlData = req.body.mlData ? JSON.parse(req.body.mlData) : null;
+    } catch {
+      throw new AppError('Invalid mlData JSON format', 400);
     }
-    
-    const confidence = mlData.confidence?.score || 0;
-    
-    // If ML confidence is high enough, use it directly
-    if (confidence >= 0.75) {
-      console.log('[ML Analysis] High confidence, using on-device results');
+
+    const confidence = mlData?.confidence?.score || 0;
+    const threshold = config.ml.confidenceThreshold;
+
+    if (confidence >= threshold) {
+      logger.debug('ML confidence high, using on-device results', { confidence });
       return res.json({ skinData: mlData });
     }
-    
-    // Low confidence — fallback to Gemini Vision
+
     if (!req.file) {
-      return res.status(400).json({ 
-        error: 'Low ML confidence and no image provided for fallback' 
-      });
+      throw new AppError('Low ML confidence and no image provided for fallback analysis', 400);
     }
-    
-    console.log('[ML Analysis] Low confidence, calling Gemini fallback...');
-    const imageBase64 = req.file.buffer.toString('base64');
-    const mimeType = req.file.mimetype;
-    
-    const geminiData = await analyzeSkinFromImageFallback(
-      imageBase64, 
-      mimeType, 
-      mlData
+
+    const skinData = await analyzeSkinFromImageFallback(
+      req.file.buffer.toString('base64'),
+      req.file.mimetype,
+      mlData,
+      getSkinAnalysisFallbackPrompt(mlData)
     );
-    
-    console.log('[ML Analysis] Gemini fallback complete');
-    res.json({ skinData: geminiData });
-    
+
+    logger.info('ML fallback analysis complete', { originalConfidence: confidence, tone: skinData.tone });
+
+    res.json({ skinData });
   } catch (err) {
-    console.error('[ML Analysis] Error:', err);
-    res.status(500).json({ error: 'Skin analysis failed: ' + err.message });
+    next(err);
   }
 });
 

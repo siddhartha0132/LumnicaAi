@@ -46,7 +46,10 @@ function extractJSON(text) {
 async function callGemini(prompt) {
   console.log(`[Gemini] Text call with model: ${MODEL_NAME}`);
 
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const model = genAI.getGenerativeModel({
+    model: MODEL_NAME,
+    generationConfig: { responseMimeType: "application/json" }
+  });
   const result = await model.generateContent(prompt);
   const text = result.response.text();
 
@@ -63,7 +66,10 @@ async function callGeminiVision(prompt, imageBase64, mimeType) {
     throw new Error('GEMINI_API_KEY is not set. Check your .env file.');
   }
 
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const model = genAI.getGenerativeModel({
+    model: MODEL_NAME,
+    generationConfig: { responseMimeType: "application/json" }
+  });
 
   const imagePart = {
     inlineData: {

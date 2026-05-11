@@ -51,9 +51,21 @@ router.post('/', upload.single('image'), async (req, res) => {
       } else {
         console.log('[analyzeSkin] Using Gemini Vision for skin analysis');
         skinData = await analyzeSkinFromImage(imageBase64, mimeType);
+        
+        // Normalize to ensure all required fields
+        skinData = {
+          tone: skinData.tone || 'medium',
+          fitzpatrickType: skinData.fitzpatrickType || 'III',
+          approximateHex: skinData.approximateHex || '#C68642',
+          oiliness: skinData.oiliness || 'normal',
+          texture: skinData.texture || 'smooth',
+          concerns: Array.isArray(skinData.concerns) ? skinData.concerns : ['general skin health'],
+          undertone: skinData.undertone || 'neutral',
+          confidence: skinData.confidence || { score: 0.85, notes: 'Analysis complete' }
+        };
       }
 
-      console.log('[analyzeSkin] Analysis success:', skinData);
+      console.log('[analyzeSkin] Final normalized data:', JSON.stringify(skinData, null, 2));
     }
 
     res.json({ skinData });

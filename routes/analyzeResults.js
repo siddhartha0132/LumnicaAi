@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { analyzeResults } = require('../services/geminiService');
-// const { analyzeResultsWithClaude } = require('../services/claudeService');
-
-const DEMO_MODE = process.env.DEMO_MODE === 'true';
+const nvidiaService = require('../services/nvidiaService');
+const productService = require('../services/productService');
+const config = require('../config');
+const logger = require('../utils/logger');
+const { AppError } = require('../middleware/errorHandler');
 
 const DEMO_RESPONSE = {
   dosha: { type: 'Pitta-Kapha', description: 'Your Pitta-Kapha constitution combines fire and earth elements, leading to combination skin prone to oiliness and inflammation. Cooling and balancing treatments work best for you.' },
@@ -39,30 +41,67 @@ const DEMO_RESPONSE = {
   doshaInsights: 'Drink cooling herbal teas like coriander or fennel. Avoid spicy foods which aggravate Pitta. Sleep before 10pm to keep Kapha balanced.',
 };
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
-    const { skinData, answers, questions } = req.body;
+    const { skinData, answers } = req.body;
+    const suggestProducts = req.query.suggestProducts !== 'false' && config.products.suggestProducts;
 
     if (!skinData || !answers) {
-      return res.status(400).json({ error: 'skinData and answers are required' });
+      throw new AppError('skinData and answers are required', 400);
+    }
+
+    if (!Array.isArray(answers) || answers.length < 6) {
+      throw new AppError('At least 6 answers are required', 400);
     }
 
     let analysis;
 
-    if (DEMO_MODE) {
+    if (config.demo.enabled) {
       analysis = DEMO_RESPONSE;
     } else {
-      // === REAL MODE: Gemini full analysis ===
-      analysis = await analyzeResults(skinData, answers);
+      const AIModel = {
+        async analyze(skinData, answers) {
+          if (nvidiaService.isConfigured() && !config.demo.enabled) {
+            logger.debug('Using NVIDIA NIM for analysis');
+            return nvidiaService.analyzeResults(skinData, answers);
+          }
+          logger.debug('Using Gemini for analysis');
+          return analyzeResults(skinData, answers);
+        },
+      };
 
-      // === CLAUDE MODE (alternative paid option) ===
-      // analysis = await analyzeResultsWithClaude(skinData, answers, questions || []);
+      analysis = await AIModel.analyze(skinData, answers);
+
+      // Only include products if SUGGEST_PRODUCTS is enabled
+      if (suggestProducts && analysis.products && analysis.products.length > 0) {
+        const curatedProducts = productService.selectProductsForAnalysis(
+          analysis.dosha?.type || skinData.tone,
+          skinData,
+          7
+        );
+        if (curatedProducts.length >= 5) {
+          analysis.products = curatedProducts;
+        }
+      } else if (!suggestProducts) {
+        // Remove products from analysis if suggestions are disabled
+        analysis.products = [];
+      }
     }
+
+    // Remove products from demo response if suggestions are disabled
+    if (!suggestProducts && analysis.products) {
+      analysis.products = [];
+    }
+
+    logger.info('Analysis complete', {
+      dosha: analysis.dosha?.type || 'unknown',
+      productCount: analysis.products?.length || 0,
+      suggestProducts,
+    });
 
     res.json(analysis);
   } catch (err) {
-    console.error('analyzeResults error:', err);
-    res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    next(err);
   }
 });
 

@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { analyzeSkinFromImage } = require('../services/geminiService');
+const config = require('../config');
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: config.upload.maxFileSize },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/avif', 'image/webp'];
     if (allowed.includes(file.mimetype)) {
@@ -16,8 +17,6 @@ const upload = multer({
   },
 });
 
-const DEMO_MODE = process.env.DEMO_MODE === 'true';
-
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -26,8 +25,8 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     let skinData;
 
-    if (DEMO_MODE) {
-      console.log('Running in DEMO_MODE');
+    if (config.demo.enabled) {
+      console.log('[analyzeSkin] Running in DEMO_MODE');
       skinData = {
         tone: 'medium warm',
         oiliness: 'combination',
@@ -36,23 +35,43 @@ router.post('/', upload.single('image'), async (req, res) => {
         undertone: 'warm golden',
       };
     } else {
-      console.log('Calling Gemini API for skin analysis...');
       const imageBase64 = req.file.buffer.toString('base64');
       const mimeType = req.file.mimetype;
-      skinData = await analyzeSkinFromImage(imageBase64, mimeType);
-      console.log('Gemini analysis success:', skinData);
+
+      // Check if NVIDIA Vision is configured (future support)
+      // Currently NVIDIA NIM is text-only; Gemini handles vision (image) analysis
+      // When NVIDIA adds vision support, swap the provider here via env var
+      const useNvidiaVision = config.providers.nvidia.apiKey &&
+        process.env.NVIDIA_VISION_ENABLED === 'true';
+
+      if (useNvidiaVision) {
+        // Placeholder: NVIDIA vision support (enable via NVIDIA_VISION_ENABLED=true)
+        console.log('[analyzeSkin] Using NVIDIA Vision API for skin analysis');
+        skinData = await analyzeSkinFromImage(imageBase64, mimeType); // replace with nvidia vision call when available
+      } else {
+        console.log('[analyzeSkin] Using Gemini Vision for skin analysis');
+        skinData = await analyzeSkinFromImage(imageBase64, mimeType);
+      }
+
+      console.log('[analyzeSkin] Analysis success:', skinData);
     }
 
     res.json({ skinData });
   } catch (err) {
-    // Log the REAL error, not just a generic message
-    console.error('analyzeSkin error details:', {
+    console.error('[analyzeSkin] Error:', {
       message: err.message,
-      stack: err.stack,
-      geminiKey: process.env.GEMINI_API_KEY ? 'SET (length: ' + process.env.GEMINI_API_KEY.length + ')' : 'NOT SET',
-      demoMode: process.env.DEMO_MODE,
+      geminiKeySet: !!process.env.GEMINI_API_KEY,
+      nvidiaKeySet: !!process.env.NVIDIA_API_KEY,
+      demoMode: config.demo.enabled,
     });
-    res.status(500).json({ error: 'Skin analysis failed: ' + err.message });
+
+    // Send clean error — no stack trace leak in production
+    const statusCode = err.statusCode || 500;
+    const message = config.env === 'production'
+      ? 'Skin analysis failed. Please try again.'
+      : `Skin analysis failed: ${err.message}`;
+
+    res.status(statusCode).json({ error: message });
   }
 });
 

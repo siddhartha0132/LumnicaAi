@@ -1,41 +1,8 @@
-/**
- * Custom AppError class for API errors
- */
-class AppError extends Error {
-  constructor(message, statusCode) {
-    super(message);
-    this.statusCode = statusCode;
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
+const logger = require('../utils/logger');
 
 /**
  * Global error handler middleware
  */
-const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-
-  console.error(`[ERROR] ${statusCode}: ${message}`);
-  if (err.stack) {
-    console.error(err.stack);
-  }
-
-  res.status(statusCode).json({
-    success: false,
-    error: {
-      message,
-      statusCode,
-    },
-  });
-};
-
-module.exports = {
-  AppError,
-  errorHandler,
-};
-const logger = require('../utils/logger');
-
 function errorHandler(err, req, res, _next) {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';

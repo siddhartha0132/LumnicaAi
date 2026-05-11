@@ -44,6 +44,10 @@ module.exports = {
     enabled: process.env.DEMO_MODE === 'true',
   },
 
+  products: {
+    suggestProducts: process.env.SUGGEST_PRODUCTS !== 'false',
+  },
+
   logging: {
     level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
   },

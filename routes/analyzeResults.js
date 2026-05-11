@@ -63,6 +63,7 @@ const AIModel = {
 router.post('/', async (req, res, next) => {
   try {
     const { skinData, answers } = req.body;
+    const suggestProducts = req.query.suggestProducts !== 'false' && config.products.suggestProducts;
 
     if (!skinData || !answers) {
       throw new AppError('skinData and answers are required', 400);
@@ -79,7 +80,8 @@ router.post('/', async (req, res, next) => {
     } else {
       analysis = await AIModel.analyze(skinData, answers);
 
-      if (analysis.products && analysis.products.length > 0) {
+      // Only include products if SUGGEST_PRODUCTS is enabled
+      if (suggestProducts && analysis.products && analysis.products.length > 0) {
         const curatedProducts = productService.selectProductsForAnalysis(
           analysis.dosha?.type || skinData.tone,
           skinData,
@@ -88,12 +90,21 @@ router.post('/', async (req, res, next) => {
         if (curatedProducts.length >= 5) {
           analysis.products = curatedProducts;
         }
+      } else if (!suggestProducts) {
+        // Remove products from analysis if suggestions are disabled
+        analysis.products = [];
       }
+    }
+
+    // Remove products from demo response if suggestions are disabled
+    if (!suggestProducts && analysis.products) {
+      analysis.products = [];
     }
 
     logger.info('Analysis complete', {
       dosha: analysis.dosha?.type || 'unknown',
       productCount: analysis.products?.length || 0,
+      suggestProducts,
     });
 
     res.json(analysis);

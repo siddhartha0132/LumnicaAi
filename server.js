@@ -30,6 +30,10 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
+// Trust Render's reverse proxy so express-rate-limit can correctly
+// identify users via X-Forwarded-For (required on Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
 // Rate limiter for API routes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

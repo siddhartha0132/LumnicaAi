@@ -57,6 +57,7 @@ const nvidiaService = {
         max_tokens: maxTok,
         top_p: options.topP ?? 0.95,
         stream: false,
+        response_format: { type: "json_object" },
       }, {
         headers: {
           'Content-Type': 'application/json',

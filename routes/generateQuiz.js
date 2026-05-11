@@ -30,9 +30,14 @@ router.post('/', async (req, res) => {
     let dynamicQuestions;
 
     if (nvidiaService.isConfigured()) {
-      console.log('[generateQuiz] PRIMARY: Using NVIDIA Nemotron to generate quiz');
-      const response = await nvidiaService.generateQuizQuestions(skinData);
-      dynamicQuestions = response.questions;
+      try {
+        console.log('[generateQuiz] PRIMARY: Using NVIDIA Nemotron to generate quiz');
+        const response = await nvidiaService.generateQuizQuestions(skinData);
+        dynamicQuestions = response.questions;
+      } catch (nvidiaErr) {
+        console.error('[generateQuiz] NVIDIA failed, falling back to Gemini:', nvidiaErr.message);
+        dynamicQuestions = await generateQuizQuestions(skinData);
+      }
     } else {
       console.log('[generateQuiz] FALLBACK: Using Gemini to generate quiz');
       dynamicQuestions = await generateQuizQuestions(skinData);

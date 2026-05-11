@@ -52,10 +52,19 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     // —— PRIMARY: NVIDIA Nemotron Omni (vision-capable reasoning model) ——
     if (nvidiaService.isConfigured()) {
-      console.log('[ML Analysis] PRIMARY: NVIDIA Nemotron Omni vision analysis');
-      const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
-      inner = result.inner;
-      imageConfidence = result.imageConfidence;
+      try {
+        console.log('[ML Analysis] PRIMARY: NVIDIA Nemotron Omni vision analysis');
+        const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
+        inner = result.inner;
+        imageConfidence = result.imageConfidence;
+      } catch (nvidiaErr) {
+        console.error('[ML Analysis] NVIDIA failed, falling back to Gemini:', nvidiaErr.message);
+        console.log('[ML Analysis] FALLBACK: Gemini Vision (NVIDIA failed)');
+        const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
+        console.log('[ML Analysis] RAW Gemini response:', JSON.stringify(rawResult, null, 2));
+        inner = rawResult.skinData || rawResult;
+        imageConfidence = rawResult.imageConfidence || 'unknown';
+      }
     } else {
       // —— FALLBACK: Gemini Vision ——
       console.log('[ML Analysis] FALLBACK: Gemini Vision (NVIDIA not configured)');

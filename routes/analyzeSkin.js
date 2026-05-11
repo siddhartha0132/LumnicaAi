@@ -59,15 +59,24 @@ router.post('/', upload.single('image'), async (req, res) => {
 
         // —— PRIMARY: NVIDIA Nemotron Omni (vision-capable reasoning model) ——
         if (nvidiaService.isConfigured()) {
-          console.log('[analyzeSkin] PRIMARY: NVIDIA Nemotron Omni vision analysis');
-          const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
-          inner = result.inner;
-          imageConfidence = result.imageConfidence;
+          try {
+            console.log('[analyzeSkin] PRIMARY: NVIDIA Nemotron Omni vision analysis');
+            const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
+            inner = result.inner;
+            imageConfidence = result.imageConfidence;
+          } catch (nvidiaErr) {
+            console.error('[analyzeSkin] NVIDIA failed, falling back to Gemini:', nvidiaErr.message);
+            console.log('[analyzeSkin] FALLBACK: Gemini Vision (NVIDIA failed)');
+            const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
+            console.log('[analyzeSkin] RAW Gemini response:', JSON.stringify(rawResult, null, 2));
+            inner = rawResult.skinData || rawResult;
+            imageConfidence = rawResult.imageConfidence || 'unknown';
+          }
         } else {
           // —— FALLBACK: Gemini Vision ——
           console.log('[analyzeSkin] FALLBACK: Gemini Vision (NVIDIA not configured)');
           const rawResult = await analyzeSkinFromImage(imageBase64, mimeType);
-          console.log('[analyzeSkin] RAW Gemini result:', JSON.stringify(rawResult, null, 2));
+          console.log('[analyzeSkin] RAW Gemini response:', JSON.stringify(rawResult, null, 2));
           inner = rawResult.skinData || rawResult;
           imageConfidence = rawResult.imageConfidence || 'unknown';
         }

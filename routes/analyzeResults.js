@@ -60,8 +60,13 @@ router.post('/', async (req, res, next) => {
       analysis = DEMO_RESPONSE;
     } else {
       if (nvidiaService.isConfigured()) {
-        logger.debug('Using NVIDIA Nemotron for final analysis');
-        analysis = await nvidiaService.analyzeResults(skinData, answers);
+        try {
+          logger.debug('Using NVIDIA Nemotron for final analysis');
+          analysis = await nvidiaService.analyzeResults(skinData, answers);
+        } catch (nvidiaErr) {
+          logger.error(`NVIDIA final analysis failed: ${nvidiaErr.message}, falling back to Gemini`);
+          analysis = await analyzeResults(skinData, answers);
+        }
       } else {
         logger.debug('Using Gemini for final analysis');
         analysis = await analyzeResults(skinData, answers);

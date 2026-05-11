@@ -81,15 +81,31 @@ const nvidiaService = {
   async analyzeResults(skinData, answers) {
     const answerText = answers.map((a, i) => `Q${i + 1}: ${a}`).join(' | ');
 
-    const prompt = `You are an expert Ayurvedic dermatologist. Analyze this skin profile and quiz answers to provide a personalized Ayurvedic skincare recommendation.
+    // Extract all available data
+    const tone = skinData.tone || skinData.approximateHex || 'unknown';
+    const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
+    const hex = skinData.approximateHex || skinData.fitzpatrick?.hexRange || 'unknown';
+    const oiliness = skinData.oiliness || skinData.oiliness?.overall || 'unknown';
+    const texture = skinData.texture || skinData.texture?.overall || 'unknown';
+    const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
+    
+    let concerns = 'none';
+    if (Array.isArray(skinData.concerns)) {
+      concerns = skinData.concerns.join(', ');
+    } else if (skinData.concerns && Array.isArray(skinData.concerns)) {
+      concerns = skinData.concerns.map(c => c.name || c).join(', ');
+    }
 
-SKIN PROFILE:
-- Tone: ${skinData.tone || skinData.approximateHex || 'unknown'}
-- Fitzpatrick Type: ${skinData.fitzpatrickType || 'unknown'}
-- Oiliness: ${skinData.oiliness || 'unknown'}
-- Texture: ${skinData.texture || 'unknown'}
-- Concerns: ${Array.isArray(skinData.concerns) ? skinData.concerns.join(', ') : skinData.concerns || 'none'}
-- Undertone: ${skinData.undertone || 'unknown'}
+    const prompt = `You are an expert Ayurvedic dermatologist. Analyze this DETAILED skin profile and quiz answers to provide a personalized Ayurvedic skincare recommendation.
+
+DETAILED SKIN PROFILE:
+- Skin Tone: ${tone}
+- Fitzpatrick Type: ${fitzpatrick}
+- Hex Color: ${hex}
+- Oiliness: ${oiliness}
+- Texture: ${texture}
+- Concerns: ${concerns}
+- Undertone: ${undertone}
 
 QUIZ ANSWERS: ${answerText}
 
@@ -100,10 +116,10 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
     "description": "Your constitution combines..."
   },
   "skinProfile": {
-    "tone": "medium warm",
-    "type": "combination",
-    "concerns": ["acne", "dark spots"],
-    "undertone": "warm golden"
+    "tone": "${tone}",
+    "type": "${oiliness}",
+    "concerns": ${JSON.stringify(concerns.split(', '))},
+    "undertone": "${undertone}"
   },
   "routine": {
     "morning": [
@@ -132,17 +148,37 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
     return result;
   },
   async generateQuizQuestions(skinData) {
-    const prompt = `You are an Ayurvedic skin expert. Based on this person's skin analysis, generate 5 highly personalized quiz questions to determine their Ayurvedic dosha and create a tailored skincare routine.
+    // Extract all available data
+    const tone = skinData.tone || 'unknown';
+    const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
+    const hex = skinData.approximateHex || skinData.fitzpatrick?.hexRange || 'unknown';
+    const oiliness = skinData.oiliness || skinData.oiliness?.overall || 'unknown';
+    const texture = skinData.texture || skinData.texture?.overall || 'unknown';
+    const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
+    
+    let concerns = 'none';
+    if (Array.isArray(skinData.concerns)) {
+      concerns = skinData.concerns.join(', ');
+    } else if (skinData.concerns && Array.isArray(skinData.concerns)) {
+      concerns = skinData.concerns.map(c => c.name || c).join(', ');
+    }
 
-SKIN DATA:
-- Tone: ${skinData.tone || 'unknown'}
-- Oiliness: ${skinData.oiliness || 'unknown'}
-- Texture: ${skinData.texture || 'unknown'}
-- Undertone: ${skinData.undertone || 'unknown'}
-- Concerns: ${Array.isArray(skinData.concerns) ? skinData.concerns.join(', ') : skinData.concerns || 'none'}
-- Fitzpatrick Type: ${skinData.fitzpatrickType || 'unknown'}
+    const prompt = `You are an Ayurvedic skin expert. Based on this person's DETAILED skin analysis, generate 5 highly personalized quiz questions to determine their Ayurvedic dosha and create a tailored skincare routine.
 
-Generate 5 questions relevant to their specific concerns. Return ONLY valid JSON, no markdown:
+DETAILED SKIN ANALYSIS:
+- Skin Tone: ${tone}
+- Fitzpatrick Type: ${fitzpatrick}
+- Hex Color: ${hex}
+- Oiliness: ${oiliness}
+- Texture: ${texture}
+- Undertone: ${undertone}
+- Concerns: ${concerns}
+
+Generate 5 questions that are HIGHLY SPECIFIC to their actual concerns (${concerns}) and skin type (${oiliness}, ${texture}). 
+
+Each question must have exactly 4 options. Focus on skincare habits, environmental factors, lifestyle, and how they currently manage their specific concerns.
+
+Return ONLY valid JSON, no markdown:
 {
   "questions": [
     {

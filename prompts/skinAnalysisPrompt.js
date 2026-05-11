@@ -64,16 +64,22 @@ OUTPUT RULES (NON-NEGOTIABLE):
 5. "oiliness" must be one of: dry | normal | oily | combination | balanced.
 6. "concerns" must only list what is VISIBLE — be honest even if concerns = ["none visible"].
 
-JSON SCHEMA:
+JSON SCHEMA (RETURN EXACTLY THIS STRUCTURE):
 {
-  "tone": "<specific descriptive label — NOT generic like 'medium'>",
+  "tone": "<specific descriptive label like 'medium warm beige', 'fair cool ivory', 'deep warm brown' — NOT just 'medium'>",
   "fitzpatrickType": "<I | II | III | IV | V | VI>",
-  "approximateHex": "<actual sampled hex for this person's skin color>",
+  "approximateHex": "<actual sampled hex for this person's skin color like #B87A52>",
   "oiliness": "<dry | normal | oily | combination | balanced>",
   "texture": "<smooth | slightly uneven | uneven | rough | bumpy>",
-  "concerns": ["<only visually confirmed concerns>"],
-  "undertone": "<cool | warm | neutral | warm golden | cool pink | olive>"
+  "concerns": ["<only visually confirmed concerns like 'acne', 'dark spots', 'fine lines' or 'none visible'>"],
+  "undertone": "<cool | warm | neutral | warm golden | cool pink | olive>",
+  "confidence": {
+    "score": <0.0 to 1.0 confidence in this analysis>,
+    "notes": "<any uncertainty or lighting issues observed>"
+  }
 }
+
+⚠️ CRITICAL: Be HONEST about what you see. If the image quality is poor, lighting is bad, or you cannot clearly determine something, reflect that in your confidence score and notes.
 
 Analyze the image now and return only the JSON object:`;}
 

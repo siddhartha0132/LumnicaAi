@@ -15,7 +15,7 @@ const DEMO_RESPONSE = {
       { step: 'Cleanse', product: 'Neem and Tulsi Face Wash', reason: 'Purifies without stripping natural oils, balances Pitta heat' },
       { step: 'Tone', product: 'Rose Water Toner', reason: 'Cooling and soothing for Pitta constitution' },
       { step: 'Serum', product: 'Vitamin C Serum with Turmeric', reason: 'Fades dark spots naturally using Ayurvedic brightening' },
-      { step: 'Moisturize', product: 'Aloe Vera Gel', reason: 'Lightweight hydration that does not aggravate Kapha' },
+      { step: 'Moisturizer', product: 'Aloe Vera Gel', reason: 'Lightweight hydration that does not aggravate Kapha' },
       { step: 'Protect', product: 'Mineral Sunscreen SPF 50', reason: 'Prevents pigmentation worsened by Pitta sun sensitivity' },
     ],
     night: [

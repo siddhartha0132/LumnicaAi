@@ -59,18 +59,8 @@ router.post('/', async (req, res, next) => {
     if (config.demo.enabled) {
       analysis = DEMO_RESPONSE;
     } else {
-      if (nvidiaService.isConfigured()) {
-        try {
-          logger.debug('Using NVIDIA NIM for analysis');
-          analysis = await nvidiaService.analyzeResults(skinData, answers);
-        } catch (nvidiaErr) {
-          logger.warn(`NVIDIA failed (${nvidiaErr.message}), falling back to Gemini`);
-          analysis = await analyzeResults(skinData, answers);
-        }
-      } else {
-        logger.debug('Using Gemini for analysis (NVIDIA not configured)');
-        analysis = await analyzeResults(skinData, answers);
-      }
+      logger.debug('Using Gemini for analysis');
+      analysis = await analyzeResults(skinData, answers);
 
       // Only include products if SUGGEST_PRODUCTS is enabled
       if (suggestProducts && analysis.products && analysis.products.length > 0) {

@@ -46,20 +46,12 @@ router.post('/', async (req, res) => {
       console.log('Using DEMO_MODE questions');
       dynamicQuestions = DEMO_QUESTIONS;
     } else {
-      // Try NVIDIA LLaMA first (text model — fast & cheap for quiz generation)
-      if (nvidiaService.isConfigured()) {
-        try {
-          console.log('[generateQuiz] Using NVIDIA LLaMA for quiz generation...');
-          const result = await nvidiaService.generateQuizQuestions(skinData);
-          dynamicQuestions = result.questions;
-          console.log('[generateQuiz] NVIDIA returned questions:', dynamicQuestions.length);
-        } catch (nvidiaErr) {
-          console.warn('[generateQuiz] NVIDIA failed, falling back to Gemini:', nvidiaErr.message);
-          dynamicQuestions = await generateQuizQuestions(skinData);
-        }
-      } else {
-        console.log('[generateQuiz] NVIDIA not configured, using Gemini...');
+      console.log('[generateQuiz] Using Gemini for quiz generation...');
+      try {
         dynamicQuestions = await generateQuizQuestions(skinData);
+      } catch (geminiErr) {
+        console.warn('[generateQuiz] Gemini failed, using fallback questions:', geminiErr.message);
+        dynamicQuestions = DEMO_QUESTIONS;
       }
     }
 

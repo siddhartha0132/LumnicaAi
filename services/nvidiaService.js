@@ -8,10 +8,18 @@ const BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
 const nvidiaService = {
   isConfigured() {
+    // Text model (quiz generation, result analysis)
     return Boolean(
       config.providers.nvidia.apiKeyText &&
-      config.providers.nvidia.apiKeyVision &&
       config.providers.nvidia.model
+    );
+  },
+
+  isVisionConfigured() {
+    // Vision model (skin image analysis)
+    return Boolean(
+      config.providers.nvidia.apiKeyVision &&
+      config.providers.nvidia.visionModel
     );
   },
 
@@ -97,7 +105,7 @@ const nvidiaService = {
    * Model 2: nvidia/llama-3.1-nemotron-nano-vl-8b-v1 (apiKeyVisionFallback)
    */
   async analyzeSkinFromImage(imageBase64, mimeType) {
-    if (!this.isConfigured()) {
+    if (!this.isVisionConfigured()) {
       throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY_VISION in env', 500);
     }
 

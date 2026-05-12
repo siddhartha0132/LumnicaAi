@@ -21,7 +21,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "https://integrate.api.nvidia.com", "https://generativelanguage.googleapis.com"],
+      connectSrc: ["'self'", "https://integrate.api.nvidia.com"],
     }
   }
 }));
@@ -42,16 +42,28 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Health check (no rate limiting)
+// Health check
 app.get('/api/health', (req, res) => {
+  const nvidiaOk =
+    !!process.env.NVIDIA_API_KEY_TEXT &&
+    !!process.env.NVIDIA_API_KEY_VISION &&
+    !!process.env.NVIDIA_API_KEY_VISION_FALLBACK;
+
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     providers: {
-      gemini: !!process.env.GEMINI_API_KEY,
-      nvidia: !!process.env.NVIDIA_API_KEY && process.env.NVIDIA_API_KEY !== 'your_nvidia_api_key_here',
-    }
+      nvidia_text:            !!process.env.NVIDIA_API_KEY_TEXT,
+      nvidia_vision:          !!process.env.NVIDIA_API_KEY_VISION,
+      nvidia_vision_fallback: !!process.env.NVIDIA_API_KEY_VISION_FALLBACK,
+    },
+    models: {
+      text:           process.env.NVIDIA_MODEL            || 'meta/llama-4-maverick-17b-128e-instruct',
+      vision:         process.env.NVIDIA_VISION_MODEL     || 'meta/llama-3.2-90b-vision-instruct',
+      vision_fallback:process.env.NVIDIA_VISION_FALLBACK_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+    },
+    allConfigured: nvidiaOk,
   });
 });
 
@@ -65,8 +77,10 @@ app.use('/api/analyzeResults', analyzeResultsRoute);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`LUMNICA AI Backend running on port ${PORT}`);
-  console.log(`Gemini API: ${process.env.GEMINI_API_KEY ? '✅ configured' : '❌ missing'}`);
-  console.log(`NVIDIA API: ${process.env.NVIDIA_API_KEY && process.env.NVIDIA_API_KEY !== 'your_nvidia_api_key_here' ? '✅ configured' : '❌ missing'}`);
-  console.log(`Demo mode: ${process.env.DEMO_MODE}`);
+  console.log(`\n🚀 LUMNICA AI Backend running on port ${PORT}`);
+  console.log(`\n📡 NVIDIA NIM Models:`);
+  console.log(`   Text Model:     ${process.env.NVIDIA_MODEL || 'meta/llama-4-maverick-17b-128e-instruct'} ${process.env.NVIDIA_API_KEY_TEXT ? '✅' : '❌'}`);
+  console.log(`   Vision Model:   ${process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-90b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION ? '✅' : '❌'}`);
+  console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
+  console.log(`\n   Demo mode: ${process.env.DEMO_MODE}\n`);
 });

@@ -4,14 +4,13 @@ const logger = require('../utils/logger');
 const { AppError } = require('../middleware/errorHandler');
 const { getSkinAnalysisPrompt } = require('../prompts/skinAnalysisPrompt');
 
-// Vision model for image analysis (multimodal)
-const VISION_MODEL = process.env.NVIDIA_VISION_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+const BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
 const nvidiaService = {
   isConfigured() {
     return Boolean(
-      config.providers.nvidia.apiKey &&
-      config.providers.nvidia.apiKey !== 'your_nvidia_api_key_here' &&
+      config.providers.nvidia.apiKeyText &&
+      config.providers.nvidia.apiKeyVision &&
       config.providers.nvidia.model
     );
   },
@@ -24,8 +23,8 @@ const nvidiaService = {
       .trim();
 
     let jsonStr = stripped.match(/\{[\s\S]*\}/)?.[0] || stripped;
-    
-    // Remove C-style comments (/* ... */ and // ...)
+
+    // Remove C-style comments
     jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
     if (!jsonStr.trim().startsWith('{') && !jsonStr.trim().startsWith('[')) {
@@ -39,19 +38,22 @@ const nvidiaService = {
     }
   },
 
+  /**
+   * Text chat — uses primary text model + apiKeyText
+   * Model: meta/llama-4-maverick-17b-128e-instruct
+   */
   async chat(messages, options = {}) {
     if (!this.isConfigured()) {
-      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
+      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY_TEXT in env', 500);
     }
 
-    const { model, baseUrl, temperature, maxTokens } = config.providers.nvidia;
+    const { model, apiKeyText, baseUrl, temperature, maxTokens } = config.providers.nvidia;
     const modelName = options.model || model;
     const temp = options.temperature ?? temperature;
     const maxTok = options.maxTokens ?? maxTokens;
+    const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
 
-    // NVIDIA NIM uses /v1/chat/completions (not /chat/completions)
-    const endpoint = `${baseUrl}/chat/completions`;
-    logger.debug(`[NVIDIA] POST ${endpoint}`, { model: modelName });
+    logger.debug(`[NVIDIA Text] POST ${endpoint}`, { model: modelName });
 
     try {
       const response = await axios.post(endpoint, {
@@ -59,19 +61,21 @@ const nvidiaService = {
         messages,
         temperature: temp,
         max_tokens: maxTok,
-        top_p: options.topP ?? 0.95,
+        top_p: options.topP ?? 1.0,
+        frequency_penalty: 0.0,
+        presence_penalty: 0.0,
         stream: false,
       }, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.providers.nvidia.apiKey}`,
+          Authorization: `Bearer ${apiKeyText}`,
         },
         timeout: 60000,
       });
 
       const content = response.data.choices?.[0]?.message?.content;
       if (!content) {
-        throw new AppError('NVIDIA returned empty response', 500);
+        throw new AppError('NVIDIA text model returned empty response', 500);
       }
 
       return content;
@@ -79,29 +83,113 @@ const nvidiaService = {
       if (err.response) {
         const status = err.response.status;
         const data = err.response.data?.detail || err.response.data?.error?.message || JSON.stringify(err.response.data);
-        logger.error(`[NVIDIA] API error ${status}: ${data}`);
-        throw new AppError(`NVIDIA error (${status}): ${data}`, status >= 400 && status < 500 ? 502 : 500);
+        logger.error(`[NVIDIA Text] API error ${status}: ${data}`);
+        throw new AppError(`NVIDIA Text error (${status}): ${data}`, 500);
       }
-      throw new AppError(`NVIDIA request failed: ${err.message}`, 500);
+      throw new AppError(`NVIDIA Text request failed: ${err.message}`, 500);
     }
   },
 
+  /**
+   * Vision analysis — tries primary 90B vision model first,
+   * then falls back to nano 8B if primary fails.
+   * Model 1: meta/llama-3.2-90b-vision-instruct   (apiKeyVision)
+   * Model 2: nvidia/llama-3.1-nemotron-nano-vl-8b-v1 (apiKeyVisionFallback)
+   */
+  async analyzeSkinFromImage(imageBase64, mimeType) {
+    if (!this.isConfigured()) {
+      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY_VISION in env', 500);
+    }
+
+    const { visionModel, visionFallbackModel, apiKeyVision, apiKeyVisionFallback, baseUrl } = config.providers.nvidia;
+    const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
+    const prompt = getSkinAnalysisPrompt();
+
+    const buildMessages = () => ([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          {
+            type: 'image_url',
+            image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+          },
+        ],
+      },
+    ]);
+
+    const callVision = async (model, apiKey, label) => {
+      logger.debug(`[NVIDIA Vision] ${label} | POST ${endpoint}`, { model });
+      console.log(`[NVIDIA Vision] ${label} | model=${model} | mime=${mimeType}`);
+
+      const response = await axios.post(endpoint, {
+        model,
+        messages: buildMessages(),
+        temperature: 1.0,
+        top_p: 0.01,
+        max_tokens: 1024,
+        stream: false,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        timeout: 120000,
+      });
+
+      const message = response.data.choices?.[0]?.message;
+      const content = message?.content;
+      if (!content) {
+        throw new AppError(`${label} returned empty response`, 500);
+      }
+
+      console.log(`[NVIDIA Vision] ${label} raw (first 500):`, content.substring(0, 500));
+      return content;
+    };
+
+    let content;
+    try {
+      content = await callVision(visionModel, apiKeyVision, 'PRIMARY 90B');
+    } catch (primaryErr) {
+      console.warn(`[NVIDIA Vision] Primary 90B failed (${primaryErr.message}), trying nano 8B fallback...`);
+      try {
+        content = await callVision(visionFallbackModel, apiKeyVisionFallback, 'FALLBACK 8B');
+      } catch (fallbackErr) {
+        if (fallbackErr.response) {
+          const status = fallbackErr.response.status;
+          const data = fallbackErr.response.data?.detail || fallbackErr.response.data?.error?.message || JSON.stringify(fallbackErr.response.data);
+          logger.error(`[NVIDIA Vision] Fallback also failed ${status}: ${data}`);
+          throw new AppError(`NVIDIA Vision both models failed. Last error (${status}): ${data}`, 500);
+        }
+        throw new AppError(`NVIDIA Vision fallback failed: ${fallbackErr.message}`, 500);
+      }
+    }
+
+    const parsed = this.extractJSON(content);
+    const inner = parsed.skinData || parsed;
+    const imageConfidence = parsed.imageConfidence || 'unknown';
+
+    console.log('[NVIDIA Vision] imageConfidence:', imageConfidence);
+    return { inner, imageConfidence };
+  },
+
+  /**
+   * Analyze quiz answers + skin data → Ayurvedic routine
+   * Uses text model (meta/llama-4-maverick-17b-128e-instruct)
+   */
   async analyzeResults(skinData, answers) {
     const answerText = answers.map((a, i) => `Q${i + 1}: ${a}`).join(' | ');
 
-    // Extract all available data
-    const tone = skinData.tone || skinData.approximateHex || 'unknown';
+    const tone = skinData.tone || 'unknown';
     const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
     const hex = skinData.approximateHex || skinData.fitzpatrick?.hexRange || 'unknown';
-    const oiliness = skinData.oiliness || skinData.oiliness?.overall || 'unknown';
-    const texture = skinData.texture || skinData.texture?.overall || 'unknown';
+    const oiliness = skinData.oiliness || 'unknown';
+    const texture = skinData.texture || 'unknown';
     const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
-    
+
     let concerns = 'none';
     if (Array.isArray(skinData.concerns)) {
       concerns = skinData.concerns.join(', ');
-    } else if (skinData.concerns && Array.isArray(skinData.concerns)) {
-      concerns = skinData.concerns.map(c => c.name || c).join(', ');
     }
 
     const prompt = `You are an expert Ayurvedic dermatologist. Analyze this DETAILED skin profile and quiz answers to provide a personalized Ayurvedic skincare recommendation.
@@ -155,99 +243,22 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
 
     return result;
   },
+
   /**
-   * Analyzes a skin image using NVIDIA Nemotron Omni (multimodal vision model).
-   * Sends the image as base64 inline data via OpenAI-compatible chat format.
+   * Generate skin quiz questions based on image analysis data
+   * Uses text model (meta/llama-4-maverick-17b-128e-instruct)
    */
-  async analyzeSkinFromImage(imageBase64, mimeType) {
-    if (!this.isConfigured()) {
-      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
-    }
-
-    const prompt = getSkinAnalysisPrompt();
-    const endpoint = `${config.providers.nvidia.baseUrl}/chat/completions`;
-
-    logger.debug(`[NVIDIA Vision] POST ${endpoint}`, { model: VISION_MODEL });
-    console.log(`[NVIDIA Vision] Analyzing image | model=${VISION_MODEL} | mime=${mimeType}`);
-
-    const messages = [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`,
-            },
-          },
-        ],
-      },
-    ];
-
-    try {
-      const response = await axios.post(endpoint, {
-        model: VISION_MODEL,
-        messages,
-        temperature: 0.6,
-        top_p: 0.95,
-        max_tokens: 8192,
-        stream: false,
-        extra_body: {
-          chat_template_kwargs: { enable_thinking: true },
-          reasoning_budget: 4096,
-        },
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.providers.nvidia.apiKey}`,
-        },
-        timeout: 120000, // 2 min — reasoning models take longer
-      });
-
-      const message = response.data.choices?.[0]?.message;
-      const content = message?.content || message?.reasoning_content;
-      if (!content) {
-        throw new AppError('NVIDIA Vision returned empty response', 500);
-      }
-
-      console.log('[NVIDIA Vision] Raw response (first 600 chars):', content.substring(0, 600));
-
-      const parsed = this.extractJSON(content);
-
-      // ANTI_GRAVITY_PROMPT returns { skinData: {...}, imageConfidence: '...' }
-      // Unwrap if nested, fall back to flat
-      const inner = parsed.skinData || parsed;
-      const imageConfidence = parsed.imageConfidence || 'unknown';
-
-      console.log('[NVIDIA Vision] imageConfidence:', imageConfidence);
-      return { inner, imageConfidence };
-
-    } catch (err) {
-      if (err.response) {
-        const status = err.response.status;
-        const data = err.response.data?.detail || err.response.data?.error?.message || JSON.stringify(err.response.data);
-        logger.error(`[NVIDIA Vision] API error ${status}: ${data}`);
-        throw new AppError(`NVIDIA Vision error (${status}): ${data}`, 500);
-      }
-      throw new AppError(`NVIDIA Vision request failed: ${err.message}`, 500);
-    }
-  },
-
   async generateQuizQuestions(skinData) {
-    // Extract all available data
     const tone = skinData.tone || 'unknown';
     const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
     const hex = skinData.approximateHex || skinData.fitzpatrick?.hexRange || 'unknown';
-    const oiliness = skinData.oiliness || skinData.oiliness?.overall || 'unknown';
-    const texture = skinData.texture || skinData.texture?.overall || 'unknown';
+    const oiliness = skinData.oiliness || 'unknown';
+    const texture = skinData.texture || 'unknown';
     const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
-    
+
     let concerns = 'none';
     if (Array.isArray(skinData.concerns)) {
       concerns = skinData.concerns.join(', ');
-    } else if (skinData.concerns && Array.isArray(skinData.concerns)) {
-      concerns = skinData.concerns.map(c => c.name || c).join(', ');
     }
 
     const prompt = `You are an Ayurvedic skin expert. Based on this person's DETAILED skin analysis, generate 5 highly personalized quiz questions to determine their Ayurvedic dosha and create a tailored skincare routine.
@@ -261,8 +272,7 @@ DETAILED SKIN ANALYSIS:
 - Undertone: ${undertone}
 - Concerns: ${concerns}
 
-Generate 5 questions that are HIGHLY SPECIFIC to their actual concerns (${concerns}) and skin type (${oiliness}, ${texture}). 
-
+Generate 5 questions HIGHLY SPECIFIC to their actual concerns (${concerns}) and skin type (${oiliness}, ${texture}).
 Each question must have exactly 4 options. Focus on skincare habits, environmental factors, lifestyle, and how they currently manage their specific concerns.
 
 Return ONLY valid JSON, no markdown:
@@ -276,7 +286,7 @@ Return ONLY valid JSON, no markdown:
 }`;
 
     const response = await this.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.6,
+      temperature: 1.0,
       maxTokens: 1024,
     });
     return this.extractJSON(response);

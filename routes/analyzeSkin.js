@@ -29,8 +29,8 @@ router.post('/', upload.single('image'), async (req, res) => {
     const uploadId = `${Date.now()}-${req.file.size}`;
     console.log(`[analyzeSkin] uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
 
-    if (!nvidiaService.isConfigured()) {
-      throw new Error('NVIDIA NIM not configured');
+    if (!nvidiaService.isVisionConfigured()) {
+      throw new Error('NVIDIA NIM vision not configured');
     }
 
     console.log('[analyzeSkin] PRIMARY: NVIDIA Nemotron Omni vision analysis');
@@ -59,11 +59,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     });
 
     const statusCode = err.statusCode || 500;
-    const message = config.env === 'production'
-      ? 'Skin analysis failed. Please try again.'
-      : `Skin analysis failed: ${err.message}`;
-
-    res.status(statusCode).json({ error: message });
+    res.status(statusCode).json({ error: `Skin analysis failed: ${err.message}` });
   }
 });
 

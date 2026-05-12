@@ -24,25 +24,33 @@ const nvidiaService = {
   },
 
   extractJSON(text) {
-    const stripped = text
+    // Strip markdown code fences
+    let cleaned = text
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/gi, '')
-      .replace(/^[^{[]+/, '')
       .trim();
 
-    let jsonStr = stripped.match(/\{[\s\S]*\}/)?.[0] || stripped;
+    // Try to find a JSON object anywhere in the response
+    const objMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!objMatch) {
+      throw new AppError(`AI response did not contain valid JSON. Raw: ${text.substring(0, 200)}`, 500);
+    }
+
+    let jsonStr = objMatch[0];
 
     // Remove C-style comments
     jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-    if (!jsonStr.trim().startsWith('{') && !jsonStr.trim().startsWith('[')) {
-      throw new AppError('AI response did not contain valid JSON', 500);
-    }
-
     try {
       return JSON.parse(jsonStr);
     } catch (err) {
-      throw new AppError(`Failed to parse AI JSON response: ${err.message}`, 500);
+      // Last resort: try to fix common issues like trailing commas
+      try {
+        const fixed = jsonStr.replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(fixed);
+      } catch {
+        throw new AppError(`Failed to parse AI JSON: ${err.message}. Raw: ${text.substring(0, 200)}`, 500);
+      }
     }
   },
 
@@ -133,8 +141,8 @@ const nvidiaService = {
       const response = await axios.post(endpoint, {
         model,
         messages: buildMessages(),
-        temperature: 1.0,
-        top_p: 0.01,
+        temperature: 0.7,
+        top_p: 0.9,
         max_tokens: 1024,
         stream: false,
       }, {

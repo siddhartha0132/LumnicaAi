@@ -42,8 +42,8 @@ router.post('/', upload.single('image'), async (req, res) => {
     const uploadId = `${Date.now()}-${req.file.size}`;
     console.log(`[ML Analysis] uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
 
-    if (!nvidiaService.isConfigured()) {
-      throw new Error('NVIDIA NIM not configured');
+    if (!nvidiaService.isVisionConfigured()) {
+      throw new Error('NVIDIA NIM vision not configured');
     }
 
     console.log('[ML Analysis] PRIMARY: NVIDIA Nemotron Omni vision analysis');

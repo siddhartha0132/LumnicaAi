@@ -15,8 +15,8 @@ router.post('/', async (req, res, next) => {
       throw new AppError('skinData and answers are required', 400);
     }
 
-    if (!Array.isArray(answers) || answers.length < 6) {
-      throw new AppError('At least 6 answers are required', 400);
+    if (!Array.isArray(answers) || answers.length < 3) {
+      throw new AppError('At least 3 answers are required', 400);
     }
 
     let analysis;

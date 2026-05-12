@@ -84,3 +84,6 @@ app.listen(PORT, () => {
   console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
   console.log(`\n   Demo mode: ${process.env.DEMO_MODE}\n`);
 });
+
+// Export for Vercel serverless
+module.exports = app;

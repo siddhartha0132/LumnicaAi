@@ -18,7 +18,7 @@ module.exports = {
       baseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 
       // Primary text model (quiz, results)
-      model: process.env.NVIDIA_MODEL || 'meta/llama-4-maverick-17b-128e-instruct',
+      model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct',
       // Primary vision model (90B — highest accuracy)
       visionModel: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-90b-vision-instruct',
       // Fallback vision model (8B nano — fast)

@@ -59,7 +59,7 @@ app.get('/api/health', (req, res) => {
       nvidia_vision_fallback: !!process.env.NVIDIA_API_KEY_VISION_FALLBACK,
     },
     models: {
-      text:           process.env.NVIDIA_MODEL            || 'meta/llama-4-maverick-17b-128e-instruct',
+      text:           process.env.NVIDIA_MODEL            || 'meta/llama-3.1-8b-instruct',
       vision:         process.env.NVIDIA_VISION_MODEL     || 'meta/llama-3.2-90b-vision-instruct',
       vision_fallback:process.env.NVIDIA_VISION_FALLBACK_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
     },
@@ -79,7 +79,7 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`\n🚀 LUMNICA AI Backend running on port ${PORT}`);
   console.log(`\n📡 NVIDIA NIM Models:`);
-  console.log(`   Text Model:     ${process.env.NVIDIA_MODEL || 'meta/llama-4-maverick-17b-128e-instruct'} ${process.env.NVIDIA_API_KEY_TEXT ? '✅' : '❌'}`);
+  console.log(`   Text Model:     ${process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct'} ${process.env.NVIDIA_API_KEY_TEXT ? '✅' : '❌'}`);
   console.log(`   Vision Model:   ${process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-90b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION ? '✅' : '❌'}`);
   console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
   console.log(`\n   Demo mode: ${process.env.DEMO_MODE}\n`);

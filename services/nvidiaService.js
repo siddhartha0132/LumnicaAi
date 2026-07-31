@@ -56,7 +56,7 @@ const nvidiaService = {
 
   /**
    * Text chat — uses primary text model + apiKeyText
-   * Model: meta/llama-4-maverick-17b-128e-instruct
+   * Model: meta/llama-3.1-8b-instruct (replaces EOL llama-4-maverick, confirmed working)
    */
   async chat(messages, options = {}) {
     if (!this.isConfigured()) {
@@ -191,7 +191,7 @@ const nvidiaService = {
 
   /**
    * Analyze quiz answers + skin data → Ayurvedic routine
-   * Uses text model (meta/llama-4-maverick-17b-128e-instruct)
+   * Uses text model (meta/llama-3.1-8b-instruct)
    */
   async analyzeResults(skinData, answers) {
     const answerText = answers.map((a, i) => `Q${i + 1}: ${a}`).join(' | ');
@@ -262,7 +262,7 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
 
   /**
    * Generate skin quiz questions based on image analysis data
-   * Uses text model (meta/llama-4-maverick-17b-128e-instruct)
+   * Uses text model (meta/llama-3.1-8b-instruct)
    */
   async generateQuizQuestions(skinData) {
     const tone = skinData.tone || 'unknown';

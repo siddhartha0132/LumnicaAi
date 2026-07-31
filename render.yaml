@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: lumnica-ai-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_MODE
+        value: false
+      - key: SUGGEST_PRODUCTS
+        value: false
+      # ── Text model (quiz generation, result analysis) ──
+      # meta/llama-4-maverick EOL 2026-07-27 — replaced with llama-3.1-8b-instruct
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.1-8b-instruct
+      # ── Vision models (skin image analysis) ──
+      - key: NVIDIA_VISION_MODEL
+        value: meta/llama-3.2-90b-vision-instruct
+      - key: NVIDIA_VISION_FALLBACK_MODEL
+        value: nvidia/llama-3.1-nemotron-nano-vl-8b-v1
+      # ── API Keys — set these as Secret in Render dashboard ──
+      # NVIDIA_API_KEY_TEXT       → set in Render dashboard (Secret)
+      # NVIDIA_API_KEY_VISION     → set in Render dashboard (Secret)
+      # NVIDIA_API_KEY_VISION_FALLBACK → set in Render dashboard (Secret)

@@ -2,7 +2,7 @@ services:
   - type: web
     name: lumnica-ai-backend
     env: node
-    buildCommand: npm install
+    buildCommand: rm -f package-lock.json && npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV

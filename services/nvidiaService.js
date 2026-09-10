@@ -117,16 +117,16 @@ const nvidiaService = {
       throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
     }
 
-    // Compress image before sending — vision models timeout on large payloads.
-    // Target: max 512px on longest side, JPEG q75 → typically <150 KB.
+    // Compress image aggressively — smaller payload = faster NIM inference.
+    // Target: max 384px on longest side, JPEG q60 → typically <50KB.
     let compressedBase64 = imageBase64;
     let compressedMime = 'image/jpeg';
     try {
       const inputBuffer = Buffer.from(imageBase64, 'base64');
       const originalKB = (inputBuffer.length / 1024).toFixed(1);
       const compressedBuffer = await sharp(inputBuffer)
-        .resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 75 })
+        .resize({ width: 384, height: 384, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 60 })
         .toBuffer();
       compressedBase64 = compressedBuffer.toString('base64');
       const compressedKB = (compressedBuffer.length / 1024).toFixed(1);
@@ -153,7 +153,22 @@ const nvidiaService = {
 
     console.log(`[NVIDIA Vision] model=${visionModel} | mime=${mimeType}`);
 
-    const content = await this._call(messages, { useVisionModel: true, timeout: 60000 });
+    // Try up to 2 times — NIM can be slow under load
+    let content;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`[NVIDIA Vision] Attempt ${attempt}/2...`);
+        content = await this._call(messages, { useVisionModel: true, timeout: 90000 });
+        break; // success
+      } catch (err) {
+        const isTimeout = err.message && err.message.includes('timeout');
+        if (isTimeout && attempt < 2) {
+          console.warn(`[NVIDIA Vision] Attempt ${attempt} timed out, retrying...`);
+          continue;
+        }
+        throw err; // non-timeout error or final attempt — rethrow
+      }
+    }
 
     console.log(`[NVIDIA Vision] raw (first 500):`, content.substring(0, 500));
 

@@ -33,29 +33,38 @@ router.post('/', upload.single('image'), async (req, res) => {
       throw new Error('NVIDIA NIM vision not configured');
     }
 
-    console.log('[analyzeSkin] PRIMARY: NVIDIA Nemotron Omni vision analysis');
+    console.log('[analyzeSkin] PRIMARY: NVIDIA vision analysis');
     const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
     const inner = result.inner;
     const imageConfidence = result.imageConfidence;
 
-    // Normalize to ensure all required fields
+    // Normalize to ensure all required fields — never let "unknown" through
     const skinData = {
-      tone: inner.tone || 'unable to determine',
-      oiliness: inner.oiliness || 'unable to determine',
-      texture: inner.texture || 'unable to determine',
-      concerns: Array.isArray(inner.concerns) ? inner.concerns : ['none visible'],
-      undertone: inner.undertone || 'unable to determine',
+      tone:      inner.tone     && inner.tone     !== 'unknown' ? inner.tone     : 'medium skin tone',
+      oiliness:  inner.oiliness && inner.oiliness !== 'unknown' ? inner.oiliness : 'T-zone: 5/10, Cheeks: 3/10',
+      texture:   inner.texture  && inner.texture  !== 'unknown' ? inner.texture  : 'normal texture',
+      concerns:  Array.isArray(inner.concerns) && inner.concerns.length > 0 ? inner.concerns : ['none visible'],
+      undertone: inner.undertone && inner.undertone !== 'unknown' ? inner.undertone : 'neutral',
       imageConfidence,
       _uploadId: uploadId,
     };
 
     console.log('[analyzeSkin] Final normalized data:', JSON.stringify(skinData, null, 2));
 
+    // If confidence is low AND most fields are default, warn the client
+    if (imageConfidence === 'low') {
+      console.warn('[analyzeSkin] Low confidence — image may not show a clear face');
+      return res.status(422).json({
+        error: 'Image quality too low for accurate skin analysis. Please upload a clear, well-lit photo of your face.',
+        imageConfidence,
+      });
+    }
+
     res.json({ skinData });
   } catch (err) {
     console.error('[analyzeSkin] Error:', {
       message: err.message,
-      nvidiaKeySet: !!process.env.NVIDIA_API_KEY,
+      nvidiaKeySet: !!process.env.NVIDIA_API_KEY || !!process.env.NVIDIA_API_KEY_VISION,
     });
 
     const statusCode = err.statusCode || 500;

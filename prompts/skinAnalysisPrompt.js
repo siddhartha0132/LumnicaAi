@@ -1,20 +1,27 @@
 /**
- * Skin analysis prompt optimized for Llama Vision models on NVIDIA NIM.
- * Returns structured JSON with unique, image-specific analysis.
+ * Skin analysis prompt optimized for Llama 3.2 11B Vision on NVIDIA NIM.
+ * Explicitly forbids "unknown" — forces the model to always describe what it sees.
  */
 function getSkinAnalysisPrompt() {
-  return `Analyze the skin in this photo and respond with ONLY a JSON object — no explanation, no markdown, no code fences, just raw JSON.
+  return `You are a clinical dermatologist. Look carefully at the face in this image and analyze the skin.
 
-Use this exact structure:
-{"skinData":{"tone":"describe shade and evenness","oiliness":"T-zone: X/10, Cheeks: Y/10","texture":"describe pores, smoothness, bumps","concerns":["issue1","issue2"],"undertone":"warm/cool/neutral/olive"},"imageConfidence":"high/medium/low"}
+CRITICAL RULES:
+- You MUST describe what you actually see. NEVER use "unknown" — always give your best observation.
+- If lighting is dim, describe what you can still see (e.g. "medium brown tone under dim light").
+- Output ONLY raw JSON — no markdown, no code fences, no explanation.
 
-Rules:
-- tone: specific color description e.g. "light beige with pink cheeks"
-- oiliness: use the T-zone/Cheeks X/10 format strictly
-- concerns: array of strings, use ["none visible"] if nothing notable
-- undertone: one of warm, cool, neutral, olive
-- imageConfidence: high if face is clear, medium if partially visible, low if unclear
-- Output ONLY the JSON. No other text before or after.`;
+Use EXACTLY this JSON structure:
+{"skinData":{"tone":"specific shade e.g. light beige, medium brown, deep brown","oiliness":"T-zone: X/10, Cheeks: Y/10","texture":"describe pores, smoothness, bumps, fine lines","concerns":["visible issue 1","visible issue 2"],"undertone":"warm/cool/neutral/olive"},"imageConfidence":"high/medium/low"}
+
+Rules for each field:
+- tone: specific color description, NEVER "unknown". E.g. "light beige with pink tint", "medium caramel with yellow undertone"
+- oiliness: T-zone/Cheeks X/10 format. Use 0-3 for dry, 4-6 for normal, 7-10 for oily
+- texture: specific e.g. "smooth with slightly enlarged pores on nose", NEVER "unknown"
+- concerns: array of strings. Use ["none visible"] only if skin is perfectly clear
+- undertone: MUST be one of: warm, cool, neutral, olive
+- imageConfidence: high = face clearly visible, medium = partially visible or low light, low = face not visible at all
+
+Output ONLY the JSON. Nothing else.`;
 }
 
 function getSkinAnalysisFallbackPrompt(partialMLData) {
@@ -24,6 +31,7 @@ On-device ML hints (verify against the actual image, do not blindly trust):
 ${JSON.stringify(partialMLData, null, 2)}
 
 Analyze ONLY what you SEE in THIS specific photograph. Be specific, not generic.
+NEVER use "unknown" — always give your best clinical observation based on what is visible.
 
 Return ONLY this JSON:
 {

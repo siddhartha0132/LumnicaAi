@@ -9,19 +9,12 @@ const BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
 const nvidiaService = {
   isConfigured() {
-    // Text model (quiz generation, result analysis)
-    return Boolean(
-      config.providers.nvidia.apiKeyText &&
-      config.providers.nvidia.model
-    );
+    return Boolean(config.providers.nvidia.apiKey && config.providers.nvidia.model);
   },
 
   isVisionConfigured() {
-    // Vision model (skin image analysis)
-    return Boolean(
-      config.providers.nvidia.apiKeyVision &&
-      config.providers.nvidia.visionModel
-    );
+    // Same model handles vision too
+    return this.isConfigured();
   },
 
   extractJSON(text) {
@@ -56,43 +49,40 @@ const nvidiaService = {
   },
 
   /**
-   * Text chat — uses primary text model + apiKeyText
-   * Model: meta/llama-3.1-8b-instruct (replaces EOL llama-4-maverick, confirmed working)
+   * Core request — used for BOTH text-only and vision tasks.
+   * model: meta/llama-3.2-11b-vision-instruct (handles both modalities)
    */
-  async chat(messages, options = {}) {
+  async _call(messages, options = {}) {
     if (!this.isConfigured()) {
-      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY_TEXT in env', 500);
+      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
     }
 
-    const { model, apiKeyText, baseUrl, temperature, maxTokens } = config.providers.nvidia;
-    const modelName = options.model || model;
+    const { model, apiKey, baseUrl, temperature, maxTokens } = config.providers.nvidia;
+    const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
     const temp = options.temperature ?? temperature;
     const maxTok = options.maxTokens ?? maxTokens;
-    const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
 
-    logger.debug(`[NVIDIA Text] POST ${endpoint}`, { model: modelName });
+    logger.debug(`[NVIDIA] POST ${endpoint}`, { model });
 
     try {
       const response = await axios.post(endpoint, {
-        model: modelName,
+        model,
         messages,
         temperature: temp,
         max_tokens: maxTok,
-        top_p: options.topP ?? 1.0,
-        frequency_penalty: 0.0,
-        presence_penalty: 0.0,
+        top_p: options.topP ?? 0.9,
         stream: false,
       }, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKeyText}`,
+          Authorization: `Bearer ${apiKey}`,
         },
-        timeout: 60000,
+        timeout: options.timeout ?? 60000,
       });
 
       const content = response.data.choices?.[0]?.message?.content;
       if (!content) {
-        throw new AppError('NVIDIA text model returned empty response', 500);
+        throw new AppError('NVIDIA model returned empty response', 500);
       }
 
       return content;
@@ -100,25 +90,30 @@ const nvidiaService = {
       if (err.response) {
         const status = err.response.status;
         const data = err.response.data?.detail || err.response.data?.error?.message || JSON.stringify(err.response.data);
-        logger.error(`[NVIDIA Text] API error ${status}: ${data}`);
-        throw new AppError(`NVIDIA Text error (${status}): ${data}`, 500);
+        logger.error(`[NVIDIA] API error ${status}: ${data}`);
+        throw new AppError(`NVIDIA error (${status}): ${data}`, 500);
       }
-      throw new AppError(`NVIDIA Text request failed: ${err.message}`, 500);
+      throw new AppError(`NVIDIA request failed: ${err.message}`, 500);
     }
   },
 
   /**
-   * Vision analysis — tries primary 90B vision model first,
-   * then falls back to nano 8B if primary fails.
-   * Model 1: meta/llama-3.2-90b-vision-instruct   (apiKeyVision)
-   * Model 2: nvidia/llama-3.1-nemotron-nano-vl-8b-v1 (apiKeyVisionFallback)
+   * Text-only chat (quiz generation, result analysis)
+   */
+  async chat(messages, options = {}) {
+    return this._call(messages, options);
+  },
+
+  /**
+   * Vision analysis — compresses image then sends to the vision model.
+   * Uses the same model and API key as text tasks.
    */
   async analyzeSkinFromImage(imageBase64, mimeType) {
-    if (!this.isVisionConfigured()) {
-      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY_VISION in env', 500);
+    if (!this.isConfigured()) {
+      throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
     }
 
-    // Compress image before sending — NIM vision models time out / 500 on large base64 payloads.
+    // Compress image before sending — vision models timeout on large payloads.
     // Target: max 512px on longest side, JPEG q75 → typically <150 KB.
     let compressedBase64 = imageBase64;
     let compressedMime = 'image/jpeg';
@@ -136,11 +131,10 @@ const nvidiaService = {
       console.warn('[NVIDIA Vision] Compression failed, using original:', compressErr.message);
     }
 
-    const { visionModel, visionFallbackModel, apiKeyVision, apiKeyVisionFallback, baseUrl } = config.providers.nvidia;
-    const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
     const prompt = getSkinAnalysisPrompt();
+    const { model } = config.providers.nvidia;
 
-    const buildMessages = () => ([
+    const messages = [
       {
         role: 'user',
         content: [
@@ -151,54 +145,13 @@ const nvidiaService = {
           },
         ],
       },
-    ]);
+    ];
 
-    const callVision = async (model, apiKey, label) => {
-      logger.debug(`[NVIDIA Vision] ${label} | POST ${endpoint}`, { model });
-      console.log(`[NVIDIA Vision] ${label} | model=${model} | mime=${mimeType}`);
+    console.log(`[NVIDIA Vision] model=${model} | mime=${mimeType}`);
 
-      const response = await axios.post(endpoint, {
-        model,
-        messages: buildMessages(),
-        temperature: 0.7,
-        top_p: 0.9,
-        max_tokens: 1024,
-        stream: false,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        timeout: 45000,
-      });
+    const content = await this._call(messages, { timeout: 60000 });
 
-      const message = response.data.choices?.[0]?.message;
-      const content = message?.content;
-      if (!content) {
-        throw new AppError(`${label} returned empty response`, 500);
-      }
-
-      console.log(`[NVIDIA Vision] ${label} raw (first 500):`, content.substring(0, 500));
-      return content;
-    };
-
-    let content;
-    try {
-      content = await callVision(visionModel, apiKeyVision, 'PRIMARY Kimi-K3');
-    } catch (primaryErr) {
-      console.warn(`[NVIDIA Vision] Primary model failed (${primaryErr.message}), trying fallback...`);
-      try {
-        content = await callVision(visionFallbackModel, apiKeyVisionFallback, 'FALLBACK llama-11b');
-      } catch (fallbackErr) {
-        if (fallbackErr.response) {
-          const status = fallbackErr.response.status;
-          const data = fallbackErr.response.data?.detail || fallbackErr.response.data?.error?.message || JSON.stringify(fallbackErr.response.data);
-          logger.error(`[NVIDIA Vision] Fallback also failed ${status}: ${data}`);
-          throw new AppError(`NVIDIA Vision both models failed. Last error (${status}): ${data}`, 500);
-        }
-        throw new AppError(`NVIDIA Vision fallback failed: ${fallbackErr.message}`, 500);
-      }
-    }
+    console.log(`[NVIDIA Vision] raw (first 500):`, content.substring(0, 500));
 
     const parsed = this.extractJSON(content);
     const inner = parsed.skinData || parsed;
@@ -210,7 +163,6 @@ const nvidiaService = {
 
   /**
    * Analyze quiz answers + skin data → Ayurvedic routine
-   * Uses text model (meta/llama-3.1-8b-instruct)
    */
   async analyzeResults(skinData, answers) {
     const answerText = answers.map((a, i) => `Q${i + 1}: ${a}`).join(' | ');
@@ -281,7 +233,6 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
 
   /**
    * Generate skin quiz questions based on image analysis data
-   * Uses text model (meta/llama-3.1-8b-instruct)
    */
   async generateQuizQuestions(skinData) {
     const tone = skinData.tone || 'unknown';
@@ -321,7 +272,7 @@ Return ONLY valid JSON, no markdown:
 }`;
 
     const response = await this.chat([{ role: 'user', content: prompt }], {
-      temperature: 1.0,
+      temperature: 0.7,
       maxTokens: 1024,
     });
     return this.extractJSON(response);

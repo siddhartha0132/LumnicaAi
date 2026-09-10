@@ -11,16 +11,9 @@ services:
         value: false
       - key: SUGGEST_PRODUCTS
         value: false
-      # ── Text model (quiz generation, result analysis) ──
-      # meta/llama-4-maverick EOL 2026-07-27, llama-3.1-8b replaced with gpt-oss-20b reasoning model
+      # Single model for ALL tasks (vision + text)
       - key: NVIDIA_MODEL
-        value: openai/gpt-oss-20b
-      # ── Vision models (skin image analysis) ──
-      - key: NVIDIA_VISION_MODEL
         value: meta/llama-3.2-11b-vision-instruct
-      - key: NVIDIA_VISION_FALLBACK_MODEL
-        value: meta/llama-3.2-90b-vision-instruct
-      # ── API Keys — set these as Secret in Render dashboard ──
-      # NVIDIA_API_KEY_TEXT       → set in Render dashboard (Secret)
-      # NVIDIA_API_KEY_VISION     → set in Render dashboard (Secret)
-      # NVIDIA_API_KEY_VISION_FALLBACK → set in Render dashboard (Secret)
+      # ── API Key — set this as Secret in Render dashboard ──
+      # NVIDIA_API_KEY  → set in Render dashboard (Secret)
+      # (also accepts NVIDIA_API_KEY_VISION as fallback if already set)

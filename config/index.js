@@ -10,21 +10,15 @@ module.exports = {
 
   providers: {
     nvidia: {
-      // 3 separate API keys, one per model
-      apiKeyText:            process.env.NVIDIA_API_KEY_TEXT,
-      apiKeyVision:          process.env.NVIDIA_API_KEY_VISION,
-      apiKeyVisionFallback:  process.env.NVIDIA_API_KEY_VISION_FALLBACK,
+      // Single API key for all tasks
+      apiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_API_KEY_VISION,
 
       baseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 
-      // Primary text model — quiz generation, result analysis (reasoning model)
-      model: process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b',
-      // Primary vision model (llama-3.2-11b — base64-compatible, general key)
-      visionModel: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct',
-      // Fallback vision model (llama-3.2-90b — more capable, same key access)
-      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-90b-vision-instruct',
+      // Single model used for BOTH vision (skin analysis) AND text (quiz, results)
+      model: process.env.NVIDIA_MODEL || 'meta/llama-3.2-11b-vision-instruct',
 
-      temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 1.0,
+      temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 0.7,
       maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 2048,
     },
   },

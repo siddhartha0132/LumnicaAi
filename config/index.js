@@ -10,19 +10,18 @@ module.exports = {
 
   providers: {
     nvidia: {
-      // One API key used for ALL models
-      apiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_API_KEY_VISION,
+      // API key for all models
+      apiKey: process.env.NVIDIA_API_KEY,
 
       baseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 
-      // Vision model — skin image analysis only
-      visionModel: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct',
+      // Omni reasoning model — handles BOTH vision (images) AND text (quiz/results)
+      // MoE: 30B total but only 3B active params → fast
+      model: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
 
-      // Text model — quiz generation & result analysis (stronger at text tasks)
-      model: process.env.NVIDIA_TEXT_MODEL || 'meta/llama-3.1-8b-instruct',
-
-      temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 0.7,
-      maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 2048,
+      temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 0.6,
+      maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 4096,
+      reasoningBudget: parseInt(process.env.NVIDIA_REASONING_BUDGET) || 2048,
     },
   },
 

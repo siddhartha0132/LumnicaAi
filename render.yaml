@@ -11,11 +11,8 @@ services:
         value: false
       - key: SUGGEST_PRODUCTS
         value: false
-      # Vision model — skin image analysis
-      - key: NVIDIA_VISION_MODEL
-        value: meta/llama-3.2-11b-vision-instruct
-      # Text model — quiz generation & result analysis
-      - key: NVIDIA_TEXT_MODEL
-        value: meta/llama-3.1-8b-instruct
+      # Single model for ALL tasks (vision + text) — MoE 3B active params = fast
+      - key: NVIDIA_MODEL
+        value: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       # ── API Key — set in Render dashboard as Secret ──
-      # NVIDIA_API_KEY_VISION → used automatically (no new key needed)
+      # NVIDIA_API_KEY → set in Render dashboard

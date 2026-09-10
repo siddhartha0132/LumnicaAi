@@ -13,12 +13,13 @@ const nvidiaService = {
   },
 
   isVisionConfigured() {
-    return Boolean(config.providers.nvidia.apiKey && config.providers.nvidia.visionModel);
+    return this.isConfigured();
   },
 
   extractJSON(text) {
-    // Strip markdown code fences
+    // Strip markdown code fences and <think> reasoning blocks
     let cleaned = text
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/gi, '')
       .trim();
@@ -37,7 +38,7 @@ const nvidiaService = {
     try {
       return JSON.parse(jsonStr);
     } catch (err) {
-      // Last resort: try to fix common issues like trailing commas
+      // Last resort: fix trailing commas
       try {
         const fixed = jsonStr.replace(/,\s*([}\]])/g, '$1');
         return JSON.parse(fixed);
@@ -48,40 +49,39 @@ const nvidiaService = {
   },
 
   /**
-   * Core request — shared by both text and vision calls.
-   * Pass `modelOverride` to use visionModel instead of text model.
+   * Core API call — one model handles ALL tasks (vision + text).
+   * Model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+   * MoE: 30B total params, only 3B active → fast despite size.
    */
   async _call(messages, options = {}) {
     if (!this.isConfigured()) {
       throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
     }
 
-    const { apiKey, baseUrl, temperature, maxTokens } = config.providers.nvidia;
-    // Use visionModel for image tasks, text model for everything else
-    const model = options.useVisionModel
-      ? config.providers.nvidia.visionModel
-      : config.providers.nvidia.model;
-
+    const { model, apiKey, baseUrl, temperature, maxTokens, reasoningBudget } = config.providers.nvidia;
     const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
     const temp = options.temperature ?? temperature;
     const maxTok = options.maxTokens ?? maxTokens;
 
     logger.debug(`[NVIDIA] POST ${endpoint}`, { model });
 
+    const body = {
+      model,
+      messages,
+      temperature: temp,
+      max_tokens: maxTok,
+      top_p: options.topP ?? 0.95,
+      reasoning_budget: options.reasoningBudget ?? reasoningBudget,
+      stream: false,
+    };
+
     try {
-      const response = await axios.post(endpoint, {
-        model,
-        messages,
-        temperature: temp,
-        max_tokens: maxTok,
-        top_p: options.topP ?? 0.9,
-        stream: false,
-      }, {
+      const response = await axios.post(endpoint, body, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
-        timeout: options.timeout ?? 60000,
+        timeout: options.timeout ?? 90000,
       });
 
       const content = response.data.choices?.[0]?.message?.content;
@@ -102,15 +102,15 @@ const nvidiaService = {
   },
 
   /**
-   * Text-only chat (quiz generation, result analysis) — uses llama-3.1-8b-instruct
+   * Text-only chat — quiz generation & result analysis
    */
   async chat(messages, options = {}) {
-    return this._call(messages, { ...options, useVisionModel: false });
+    return this._call(messages, options);
   },
 
   /**
-   * Vision analysis — compresses image then sends to llama-3.2-11b-vision-instruct.
-   * Uses the same API key as text tasks.
+   * Vision analysis — compress image, send to omni model.
+   * Retries once on timeout.
    */
   async analyzeSkinFromImage(imageBase64, mimeType) {
     if (!this.isConfigured()) {
@@ -136,7 +136,7 @@ const nvidiaService = {
     }
 
     const prompt = getSkinAnalysisPrompt();
-    const { visionModel } = config.providers.nvidia;
+    const { model } = config.providers.nvidia;
 
     const messages = [
       {
@@ -151,22 +151,22 @@ const nvidiaService = {
       },
     ];
 
-    console.log(`[NVIDIA Vision] model=${visionModel} | mime=${mimeType}`);
+    console.log(`[NVIDIA Vision] model=${model} | mime=${mimeType}`);
 
-    // Try up to 2 times — NIM can be slow under load
+    // Retry once on timeout — NIM can be slow under load
     let content;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         console.log(`[NVIDIA Vision] Attempt ${attempt}/2...`);
-        content = await this._call(messages, { useVisionModel: true, timeout: 90000 });
-        break; // success
+        content = await this._call(messages, { timeout: 90000, reasoningBudget: 1024 });
+        break;
       } catch (err) {
         const isTimeout = err.message && err.message.includes('timeout');
         if (isTimeout && attempt < 2) {
           console.warn(`[NVIDIA Vision] Attempt ${attempt} timed out, retrying...`);
           continue;
         }
-        throw err; // non-timeout error or final attempt — rethrow
+        throw err;
       }
     }
 
@@ -188,7 +188,6 @@ const nvidiaService = {
 
     const tone = skinData.tone || 'unknown';
     const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
-    const hex = skinData.approximateHex || skinData.fitzpatrick?.hexRange || 'unknown';
     const oiliness = skinData.oiliness || 'unknown';
     const texture = skinData.texture || 'unknown';
     const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
@@ -198,12 +197,11 @@ const nvidiaService = {
       concerns = skinData.concerns.join(', ');
     }
 
-    const prompt = `You are an expert Ayurvedic dermatologist. Analyze this DETAILED skin profile and quiz answers to provide a personalized Ayurvedic skincare recommendation.
+    const prompt = `You are an expert Ayurvedic dermatologist. Analyze this skin profile and quiz answers to provide a personalized Ayurvedic skincare recommendation.
 
-DETAILED SKIN PROFILE:
+SKIN PROFILE:
 - Skin Tone: ${tone}
 - Fitzpatrick Type: ${fitzpatrick}
-- Hex Color: ${hex}
 - Oiliness: ${oiliness}
 - Texture: ${texture}
 - Concerns: ${concerns}
@@ -255,30 +253,26 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
    */
   async generateQuizQuestions(skinData) {
     const tone = skinData.tone || 'unknown';
-    const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
-    const hex = skinData.approximateHex || skinData.fitzpatrick?.hexRange || 'unknown';
     const oiliness = skinData.oiliness || 'unknown';
     const texture = skinData.texture || 'unknown';
-    const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
+    const undertone = skinData.undertone || 'unknown';
 
     let concerns = 'none';
     if (Array.isArray(skinData.concerns)) {
       concerns = skinData.concerns.join(', ');
     }
 
-    const prompt = `You are an Ayurvedic skin expert. Based on this person's DETAILED skin analysis, generate 5 highly personalized quiz questions to determine their Ayurvedic dosha and create a tailored skincare routine.
+    const prompt = `You are an Ayurvedic skin expert. Based on this person's skin analysis, generate 5 personalized quiz questions to determine their Ayurvedic dosha.
 
-DETAILED SKIN ANALYSIS:
-- Skin Tone: ${tone}
-- Fitzpatrick Type: ${fitzpatrick}
-- Hex Color: ${hex}
+SKIN ANALYSIS:
+- Tone: ${tone}
 - Oiliness: ${oiliness}
 - Texture: ${texture}
 - Undertone: ${undertone}
 - Concerns: ${concerns}
 
-Generate 5 questions HIGHLY SPECIFIC to their actual concerns (${concerns}) and skin type (${oiliness}, ${texture}).
-Each question must have exactly 4 options. Focus on skincare habits, environmental factors, lifestyle, and how they currently manage their specific concerns.
+Generate 5 questions specific to their concerns (${concerns}) and skin type (${oiliness}).
+Each question must have exactly 4 options.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -291,8 +285,9 @@ Return ONLY valid JSON, no markdown:
 }`;
 
     const response = await this.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.7,
+      temperature: 0.6,
       maxTokens: 1024,
+      reasoningBudget: 512,
     });
     return this.extractJSON(response);
   },

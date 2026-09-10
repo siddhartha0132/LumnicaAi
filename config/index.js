@@ -21,8 +21,8 @@ module.exports = {
       model: process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b',
       // Primary vision model (Kimi-K3 — confirmed working multimodal on NIM)
       visionModel: process.env.NVIDIA_VISION_MODEL || 'moonshotai/kimi-k3',
-      // Fallback vision model (Phi-3.5 Vision — lightweight, replaces EOL nemotron-nano)
-      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'microsoft/phi-3.5-vision-instruct',
+      // Fallback vision model (llama-3.2-11b — confirmed working NIM vision model)
+      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-11b-vision-instruct',
 
       temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 1.0,
       maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 2048,

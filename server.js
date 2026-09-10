@@ -61,7 +61,7 @@ app.get('/api/health', (req, res) => {
     models: {
       text:           process.env.NVIDIA_MODEL            || 'meta/llama-3.1-8b-instruct',
       vision:         process.env.NVIDIA_VISION_MODEL     || 'moonshotai/kimi-k3',
-      vision_fallback:process.env.NVIDIA_VISION_FALLBACK_MODEL || 'microsoft/phi-3.5-vision-instruct',
+      vision_fallback:process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-11b-vision-instruct',
     },
     allConfigured: nvidiaOk,
   });
@@ -81,7 +81,7 @@ app.listen(PORT, () => {
   console.log(`\n📡 NVIDIA NIM Models:`);
   console.log(`   Text Model:     ${process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct'} ${process.env.NVIDIA_API_KEY_TEXT ? '✅' : '❌'}`);
   console.log(`   Vision Model:   ${process.env.NVIDIA_VISION_MODEL || 'moonshotai/kimi-k3'} ${process.env.NVIDIA_API_KEY_VISION ? '✅' : '❌'}`);
-  console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'microsoft/phi-3.5-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
+  console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-11b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
   console.log(`\n   Demo mode: ${process.env.DEMO_MODE}\n`);
 });
 

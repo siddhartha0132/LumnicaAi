@@ -19,7 +19,7 @@ services:
       - key: NVIDIA_VISION_MODEL
         value: moonshotai/kimi-k3
       - key: NVIDIA_VISION_FALLBACK_MODEL
-        value: microsoft/phi-3.5-vision-instruct
+        value: meta/llama-3.2-11b-vision-instruct
       # ── API Keys — set these as Secret in Render dashboard ──
       # NVIDIA_API_KEY_TEXT       → set in Render dashboard (Secret)
       # NVIDIA_API_KEY_VISION     → set in Render dashboard (Secret)

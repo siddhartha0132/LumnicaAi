@@ -141,11 +141,9 @@ const nvidiaService = {
       const response = await axios.post(endpoint, {
         model,
         messages: buildMessages(),
-        temperature: 1,
+        temperature: 0.7,
         top_p: 0.9,
-        max_tokens: 16384,
-        seed: 0,
-        reasoning_effort: 'max',
+        max_tokens: 1024,
         stream: false,
       }, {
         headers: {
@@ -171,7 +169,7 @@ const nvidiaService = {
     } catch (primaryErr) {
       console.warn(`[NVIDIA Vision] Primary model failed (${primaryErr.message}), trying fallback...`);
       try {
-        content = await callVision(visionFallbackModel, apiKeyVisionFallback, 'FALLBACK Phi-3.5');
+        content = await callVision(visionFallbackModel, apiKeyVisionFallback, 'FALLBACK llama-11b');
       } catch (fallbackErr) {
         if (fallbackErr.response) {
           const status = fallbackErr.response.status;

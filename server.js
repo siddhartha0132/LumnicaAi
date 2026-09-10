@@ -44,24 +44,17 @@ app.use('/api/', limiter);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  const nvidiaOk =
-    !!process.env.NVIDIA_API_KEY_TEXT &&
-    !!process.env.NVIDIA_API_KEY_VISION &&
-    !!process.env.NVIDIA_API_KEY_VISION_FALLBACK;
+  const nvidiaOk = !!process.env.NVIDIA_API_KEY;
 
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     providers: {
-      nvidia_text:            !!process.env.NVIDIA_API_KEY_TEXT,
-      nvidia_vision:          !!process.env.NVIDIA_API_KEY_VISION,
-      nvidia_vision_fallback: !!process.env.NVIDIA_API_KEY_VISION_FALLBACK,
+      nvidia: nvidiaOk,
     },
     models: {
-      text:           process.env.NVIDIA_MODEL            || 'meta/llama-3.1-8b-instruct',
-      vision:         process.env.NVIDIA_VISION_MODEL     || 'meta/llama-3.2-11b-vision-instruct',
-      vision_fallback:process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-90b-vision-instruct',
+      active: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
     },
     allConfigured: nvidiaOk,
   });
@@ -77,11 +70,11 @@ app.use('/api/analyzeResults', analyzeResultsRoute);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
+  const model = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+  const keySet = !!process.env.NVIDIA_API_KEY;
   console.log(`\n🚀 LUMNICA AI Backend running on port ${PORT}`);
-  console.log(`\n📡 NVIDIA NIM Models:`);
-  console.log(`   Text Model:     ${process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct'} ${process.env.NVIDIA_API_KEY_TEXT ? '✅' : '❌'}`);
-  console.log(`   Vision Model:   ${process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION ? '✅' : '❌'}`);
-  console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-90b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
+  console.log(`\n📡 NVIDIA NIM:`);
+  console.log(`   Model:  ${model} ${keySet ? '✅' : '❌ NVIDIA_API_KEY not set'}`);
   console.log(`\n   Demo mode: ${process.env.DEMO_MODE}\n`);
 });
 

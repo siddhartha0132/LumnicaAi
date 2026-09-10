@@ -135,6 +135,7 @@ const nvidiaService = {
       console.warn('[NVIDIA Vision] Compression failed, using original:', compressErr.message);
     }
 
+    const prompt = getSkinAnalysisPrompt();
     const { visionModel } = config.providers.nvidia;
 
     const messages = [

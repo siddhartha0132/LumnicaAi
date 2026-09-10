@@ -238,7 +238,10 @@ Return a valid JSON object ONLY (no markdown, no text outside JSON):
   "doshaInsights": "Lifestyle and dietary advice..."
 }`;
 
-    const response = await this.chat([{ role: 'user', content: prompt }]);
+    const response = await this.chat([{ role: 'user', content: prompt }], {
+      maxTokens: 2048,
+      reasoningBudget: 256,
+    });
     const result = this.extractJSON(response);
 
     if (!result.dosha || !result.routine) {
@@ -286,8 +289,8 @@ Return ONLY valid JSON, no markdown:
 
     const response = await this.chat([{ role: 'user', content: prompt }], {
       temperature: 0.6,
-      maxTokens: 1024,
-      reasoningBudget: 512,
+      maxTokens: 2048,
+      reasoningBudget: 256,
     });
     return this.extractJSON(response);
   },

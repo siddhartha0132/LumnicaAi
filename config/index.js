@@ -10,13 +10,16 @@ module.exports = {
 
   providers: {
     nvidia: {
-      // Single API key for all tasks
+      // One API key used for ALL models
       apiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_API_KEY_VISION,
 
       baseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 
-      // Single model used for BOTH vision (skin analysis) AND text (quiz, results)
-      model: process.env.NVIDIA_MODEL || 'meta/llama-3.2-11b-vision-instruct',
+      // Vision model — skin image analysis only
+      visionModel: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct',
+
+      // Text model — quiz generation & result analysis (stronger at text tasks)
+      model: process.env.NVIDIA_TEXT_MODEL || 'meta/llama-3.1-8b-instruct',
 
       temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 0.7,
       maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 2048,

@@ -13,8 +13,7 @@ const nvidiaService = {
   },
 
   isVisionConfigured() {
-    // Same model handles vision too
-    return this.isConfigured();
+    return Boolean(config.providers.nvidia.apiKey && config.providers.nvidia.visionModel);
   },
 
   extractJSON(text) {
@@ -49,15 +48,20 @@ const nvidiaService = {
   },
 
   /**
-   * Core request — used for BOTH text-only and vision tasks.
-   * model: meta/llama-3.2-11b-vision-instruct (handles both modalities)
+   * Core request — shared by both text and vision calls.
+   * Pass `modelOverride` to use visionModel instead of text model.
    */
   async _call(messages, options = {}) {
     if (!this.isConfigured()) {
       throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
     }
 
-    const { model, apiKey, baseUrl, temperature, maxTokens } = config.providers.nvidia;
+    const { apiKey, baseUrl, temperature, maxTokens } = config.providers.nvidia;
+    // Use visionModel for image tasks, text model for everything else
+    const model = options.useVisionModel
+      ? config.providers.nvidia.visionModel
+      : config.providers.nvidia.model;
+
     const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
     const temp = options.temperature ?? temperature;
     const maxTok = options.maxTokens ?? maxTokens;
@@ -98,15 +102,15 @@ const nvidiaService = {
   },
 
   /**
-   * Text-only chat (quiz generation, result analysis)
+   * Text-only chat (quiz generation, result analysis) — uses llama-3.1-8b-instruct
    */
   async chat(messages, options = {}) {
-    return this._call(messages, options);
+    return this._call(messages, { ...options, useVisionModel: false });
   },
 
   /**
-   * Vision analysis — compresses image then sends to the vision model.
-   * Uses the same model and API key as text tasks.
+   * Vision analysis — compresses image then sends to llama-3.2-11b-vision-instruct.
+   * Uses the same API key as text tasks.
    */
   async analyzeSkinFromImage(imageBase64, mimeType) {
     if (!this.isConfigured()) {
@@ -131,8 +135,7 @@ const nvidiaService = {
       console.warn('[NVIDIA Vision] Compression failed, using original:', compressErr.message);
     }
 
-    const prompt = getSkinAnalysisPrompt();
-    const { model } = config.providers.nvidia;
+    const { visionModel } = config.providers.nvidia;
 
     const messages = [
       {
@@ -147,9 +150,9 @@ const nvidiaService = {
       },
     ];
 
-    console.log(`[NVIDIA Vision] model=${model} | mime=${mimeType}`);
+    console.log(`[NVIDIA Vision] model=${visionModel} | mime=${mimeType}`);
 
-    const content = await this._call(messages, { timeout: 60000 });
+    const content = await this._call(messages, { useVisionModel: true, timeout: 60000 });
 
     console.log(`[NVIDIA Vision] raw (first 500):`, content.substring(0, 500));
 

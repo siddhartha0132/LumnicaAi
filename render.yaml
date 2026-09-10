@@ -11,9 +11,11 @@ services:
         value: false
       - key: SUGGEST_PRODUCTS
         value: false
-      # Single model for ALL tasks (vision + text)
-      - key: NVIDIA_MODEL
+      # Vision model — skin image analysis
+      - key: NVIDIA_VISION_MODEL
         value: meta/llama-3.2-11b-vision-instruct
-      # ── API Key — set this as Secret in Render dashboard ──
-      # NVIDIA_API_KEY  → set in Render dashboard (Secret)
-      # (also accepts NVIDIA_API_KEY_VISION as fallback if already set)
+      # Text model — quiz generation & result analysis
+      - key: NVIDIA_TEXT_MODEL
+        value: meta/llama-3.1-8b-instruct
+      # ── API Key — set in Render dashboard as Secret ──
+      # NVIDIA_API_KEY_VISION → used automatically (no new key needed)

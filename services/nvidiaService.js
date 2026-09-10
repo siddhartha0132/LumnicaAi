@@ -1,4 +1,5 @@
 const axios = require('axios');
+const sharp = require('sharp');
 const config = require('../config');
 const logger = require('../utils/logger');
 const { AppError } = require('../middleware/errorHandler');
@@ -117,6 +118,24 @@ const nvidiaService = {
       throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY_VISION in env', 500);
     }
 
+    // Compress image before sending — NIM vision models time out / 500 on large base64 payloads.
+    // Target: max 512px on longest side, JPEG q75 → typically <150 KB.
+    let compressedBase64 = imageBase64;
+    let compressedMime = 'image/jpeg';
+    try {
+      const inputBuffer = Buffer.from(imageBase64, 'base64');
+      const originalKB = (inputBuffer.length / 1024).toFixed(1);
+      const compressedBuffer = await sharp(inputBuffer)
+        .resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 75 })
+        .toBuffer();
+      compressedBase64 = compressedBuffer.toString('base64');
+      const compressedKB = (compressedBuffer.length / 1024).toFixed(1);
+      console.log(`[NVIDIA Vision] Image compressed: ${originalKB}KB → ${compressedKB}KB`);
+    } catch (compressErr) {
+      console.warn('[NVIDIA Vision] Compression failed, using original:', compressErr.message);
+    }
+
     const { visionModel, visionFallbackModel, apiKeyVision, apiKeyVisionFallback, baseUrl } = config.providers.nvidia;
     const endpoint = `${baseUrl || BASE_URL}/chat/completions`;
     const prompt = getSkinAnalysisPrompt();
@@ -128,7 +147,7 @@ const nvidiaService = {
           { type: 'text', text: prompt },
           {
             type: 'image_url',
-            image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+            image_url: { url: `data:${compressedMime};base64,${compressedBase64}` },
           },
         ],
       },

@@ -19,10 +19,10 @@ module.exports = {
 
       // Primary text model — quiz generation, result analysis (reasoning model)
       model: process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b',
-      // Primary vision model (Kimi-K3 — confirmed working multimodal on NIM)
-      visionModel: process.env.NVIDIA_VISION_MODEL || 'moonshotai/kimi-k3',
-      // Fallback vision model (llama-3.2-11b — confirmed working NIM vision model)
-      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-11b-vision-instruct',
+      // Primary vision model (llama-3.2-11b — base64-compatible, general key)
+      visionModel: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct',
+      // Fallback vision model (llama-3.2-90b — more capable, same key access)
+      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-90b-vision-instruct',
 
       temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 1.0,
       maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 2048,

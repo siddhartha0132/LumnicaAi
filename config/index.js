@@ -17,12 +17,12 @@ module.exports = {
 
       baseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 
-      // Primary text model (quiz, results)
-      model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct',
-      // Primary vision model (90B — highest accuracy)
-      visionModel: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-90b-vision-instruct',
-      // Fallback vision model (8B nano — fast)
-      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+      // Primary text model — quiz generation, result analysis (reasoning model)
+      model: process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b',
+      // Primary vision model (Kimi-K3 — confirmed working multimodal on NIM)
+      visionModel: process.env.NVIDIA_VISION_MODEL || 'moonshotai/kimi-k3',
+      // Fallback vision model (Phi-3.5 Vision — lightweight, replaces EOL nemotron-nano)
+      visionFallbackModel: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'microsoft/phi-3.5-vision-instruct',
 
       temperature: parseFloat(process.env.NVIDIA_TEMPERATURE) || 1.0,
       maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 2048,

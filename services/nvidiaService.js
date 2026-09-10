@@ -141,16 +141,18 @@ const nvidiaService = {
       const response = await axios.post(endpoint, {
         model,
         messages: buildMessages(),
-        temperature: 0.7,
+        temperature: 1,
         top_p: 0.9,
-        max_tokens: 1024,
+        max_tokens: 16384,
+        seed: 0,
+        reasoning_effort: 'max',
         stream: false,
       }, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
-        timeout: 120000,
+        timeout: 45000,
       });
 
       const message = response.data.choices?.[0]?.message;
@@ -165,11 +167,11 @@ const nvidiaService = {
 
     let content;
     try {
-      content = await callVision(visionModel, apiKeyVision, 'PRIMARY 90B');
+      content = await callVision(visionModel, apiKeyVision, 'PRIMARY Kimi-K3');
     } catch (primaryErr) {
-      console.warn(`[NVIDIA Vision] Primary 90B failed (${primaryErr.message}), trying nano 8B fallback...`);
+      console.warn(`[NVIDIA Vision] Primary model failed (${primaryErr.message}), trying fallback...`);
       try {
-        content = await callVision(visionFallbackModel, apiKeyVisionFallback, 'FALLBACK 8B');
+        content = await callVision(visionFallbackModel, apiKeyVisionFallback, 'FALLBACK Phi-3.5');
       } catch (fallbackErr) {
         if (fallbackErr.response) {
           const status = fallbackErr.response.status;

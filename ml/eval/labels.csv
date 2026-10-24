@@ -1,0 +1,108 @@
+file,label,notes
+acne_013.jpg,acne,"mild acne, glasses"
+acne_025.jpg,acne,
+acne_033.jpg,acne,
+acne_034.jpg,acne,
+acne_035.jpg,acne,
+acne_036.jpg,acne,
+acne_037.jpg,acne,
+acne_038.jpg,acne,
+acne_039.jpg,acne,
+acne_029.jpg,skip,"whiteheads on forehead, partial face; skipped: in training data (dhash match)"
+wrinkles_018.jpg,skip,skipped: possible training overlap (dhash distance 5)
+clear_002.jpg,clear,
+clear_003.jpg,clear,
+clear_006.jpg,clear,
+clear_008.jpg,clear,
+clear_009.jpg,clear,
+clear_012.jpg,clear,
+clear_013.jpg,clear,
+clear_014.jpg,clear,
+clear_015.jpg,clear,
+clear_016.jpg,clear,
+clear_021.jpg,clear,
+clear_023.jpg,clear,
+dark_spots_005.jpg,dark_spots,"freckles, profile"
+freckles_005.jpg,dark_spots,
+freckles_009.jpg,dark_spots,
+freckles_011.jpg,dark_spots,
+freckles_012.jpg,dark_spots,
+freckles_013.jpg,dark_spots,
+freckles_016.jpg,dark_spots,close-up eyes/nose
+redness_a7912384.jpg,redness,"ruddy weathered face, also wrinkles"
+clear_001.jpg,wrinkles,"older man, visible lines (category said clear)"
+clear_004.jpg,wrinkles,elderly woman (category said clear)
+freckles_007.jpg,wrinkles,elderly man
+wrinkles_000.jpg,wrinkles,
+wrinkles_001.jpg,wrinkles,
+wrinkles_003.jpg,wrinkles,
+wrinkles_005.jpg,wrinkles,
+wrinkles_006.jpg,wrinkles,
+wrinkles_007.jpg,wrinkles,
+wrinkles_013.jpg,wrinkles,
+wrinkles_014.jpg,wrinkles,
+wrinkles_015.jpg,wrinkles,
+wrinkles_019.jpg,wrinkles,
+wrinkles_020.jpg,wrinkles,
+ev2_acne_df49d9d6.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_02cb00f3.jpg,clear,mother and baby
+ev2_clear_05d38dd6.jpg,clear,
+ev2_clear_106744da.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_25186f6d.jpg,clear,
+ev2_clear_2c2d1415.jpg,clear,
+ev2_clear_2d7d1125.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_345b343e.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_39611868.jpg,clear,
+ev2_clear_3ce2fc59.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_4a4ba2d3.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_52c39f96.jpg,clear,
+ev2_clear_535afb0b.jpg,clear,
+ev2_clear_5ff20a96.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_6f9d9866.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_768ba9a7.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_82213a4b.jpg,clear,
+ev2_clear_8d0ff24f.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_a2ca6328.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_a65d1a12.jpg,clear,
+ev2_clear_c0725c25.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_c0f79011.jpg,clear,
+ev2_clear_ccaa895d.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_dd9972e8.jpg,clear,
+ev2_clear_dda0670e.jpg,clear,
+ev2_clear_e54e87b9.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_e782bcbf.jpg,skip,not a real colour photo / ambiguous
+ev2_clear_ef362730.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_04c5d487.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_14da281d.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_313ee8d0.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_596091e8.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_6b0d627b.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_794386e0.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_7ed7410c.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_b706cabf.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_bbdedd1b.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_d0fa096e.jpg,dark_spots,freckles
+ev2_dark_spots_d9bc4ed9.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_e6023143.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_ee0ad5b7.jpg,skip,not a real colour photo / ambiguous
+ev2_dark_spots_ffaa10f7.jpg,dark_spots,"freckles, stylised lighting"
+ev2_redness_3d84b4c2.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_2308ee53.jpg,wrinkles,
+ev2_wrinkles_25f4641c.jpg,wrinkles,
+ev2_wrinkles_28811c5a.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_2f1a7e0b.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_32832956.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_4e4df112.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_57e03556.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_59073ab3.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_6985d3bc.jpg,wrinkles,
+ev2_wrinkles_700a8c14.jpg,wrinkles,two older faces
+ev2_wrinkles_9303e09b.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_94f2695f.jpg,wrinkles,"two faces, man older"
+ev2_wrinkles_9eca6275.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_b6831630.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_beee6fed.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_c22cf71f.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_cde5b271.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_d277a55e.jpg,skip,not a real colour photo / ambiguous
+ev2_wrinkles_eab613ed.jpg,skip,not a real colour photo / ambiguous

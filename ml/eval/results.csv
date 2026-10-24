@@ -1,0 +1,44 @@
+file,truth,pred,hit,any_hit,concerns,scores
+acne_013.jpg,acne,NO_FACE:no_usable_skin,,,,
+acne_025.jpg,acne,acne,1,1,acne,"{""acne"": 0.9150000214576721, ""clear"": 0.07500000298023224, ""comedones"": 0.20000000298023224, ""dark_spots"": 0.3019999861717224, ""pores"": 0.07699999958276749, ""redness"": 0.24799999594688416, ""wrinkles"": 0.6809999942779541}"
+acne_033.jpg,acne,NO_FACE:no_face,,,,
+acne_034.jpg,acne,NO_FACE:no_face,,,,
+acne_035.jpg,acne,NO_FACE:no_face,,,,
+acne_036.jpg,acne,acne,1,1,acne comedones,"{""acne"": 0.8529999852180481, ""clear"": 0.13600000739097595, ""comedones"": 0.7760000228881836, ""dark_spots"": 0.04399999976158142, ""pores"": 0.039000000804662704, ""redness"": 0.1850000023841858, ""wrinkles"": 0.04600000008940697}"
+acne_037.jpg,acne,NO_FACE:no_face,,,,
+acne_038.jpg,acne,NO_FACE:no_face,,,,
+acne_039.jpg,acne,NO_FACE:no_face,,,,
+clear_002.jpg,clear,NO_FACE:no_face,,,,
+clear_003.jpg,clear,redness,0,0,redness,"{""acne"": 0.3240000009536743, ""clear"": 0.1599999964237213, ""comedones"": 0.4449999928474426, ""dark_spots"": 0.4830000102519989, ""pores"": 0.15700000524520874, ""redness"": 0.7630000114440918, ""wrinkles"": 0.2070000022649765}"
+clear_006.jpg,clear,clear,1,1,,"{""acne"": 0.48100000619888306, ""clear"": 0.5270000100135803, ""comedones"": 0.5789999961853027, ""dark_spots"": 0.6370000243186951, ""pores"": 0.20100000500679016, ""redness"": 0.2460000067949295, ""wrinkles"": 0.10400000214576721}"
+clear_008.jpg,clear,clear,1,1,,"{""acne"": 0.22200000286102295, ""clear"": 0.08299999684095383, ""comedones"": 0.22200000286102295, ""dark_spots"": 0.6209999918937683, ""pores"": 0.12999999523162842, ""redness"": 0.32899999618530273, ""wrinkles"": 0.23600000143051147}"
+clear_009.jpg,clear,wrinkles,0,0,wrinkles,"{""acne"": 0.20100000500679016, ""clear"": 0.19300000369548798, ""comedones"": 0.3089999854564667, ""dark_spots"": 0.3310000002384186, ""pores"": 0.11599999666213989, ""redness"": 0.3540000021457672, ""wrinkles"": 0.8240000009536743}"
+clear_012.jpg,clear,acne,0,0,acne,"{""acne"": 0.9340000152587891, ""clear"": 0.7300000190734863, ""comedones"": 0.12999999523162842, ""dark_spots"": 0.39899998903274536, ""pores"": 0.07900000363588333, ""redness"": 0.5239999890327454, ""wrinkles"": 0.4000000059604645}"
+clear_013.jpg,clear,comedones,0,0,comedones,"{""acne"": 0.38100001215934753, ""clear"": 0.9190000295639038, ""comedones"": 0.7739999890327454, ""dark_spots"": 0.23199999332427979, ""pores"": 0.07599999755620956, ""redness"": 0.23100000619888306, ""wrinkles"": 0.07800000160932541}"
+clear_014.jpg,clear,clear,1,1,,"{""acne"": 0.6489999890327454, ""clear"": 0.796999990940094, ""comedones"": 0.13699999451637268, ""dark_spots"": 0.6990000009536743, ""pores"": 0.14000000059604645, ""redness"": 0.460999995470047, ""wrinkles"": 0.03400000184774399}"
+clear_015.jpg,clear,acne,0,0,acne,"{""acne"": 0.7459999918937683, ""clear"": 0.10000000149011612, ""comedones"": 0.36800000071525574, ""dark_spots"": 0.16099999845027924, ""pores"": 0.07800000160932541, ""redness"": 0.5490000247955322, ""wrinkles"": 0.593999981880188}"
+clear_016.jpg,clear,acne,0,0,acne,"{""acne"": 0.8790000081062317, ""clear"": 0.21699999272823334, ""comedones"": 0.6830000281333923, ""dark_spots"": 0.3700000047683716, ""pores"": 0.125, ""redness"": 0.164000004529953, ""wrinkles"": 0.1340000033378601}"
+clear_021.jpg,clear,NO_FACE:face_too_small,,,,
+clear_023.jpg,clear,clear,1,1,,"{""acne"": 0.3700000047683716, ""clear"": 0.38999998569488525, ""comedones"": 0.16300000250339508, ""dark_spots"": 0.29499998688697815, ""pores"": 0.039000000804662704, ""redness"": 0.37400001287460327, ""wrinkles"": 0.5049999952316284}"
+dark_spots_005.jpg,dark_spots,wrinkles,0,0,wrinkles,"{""acne"": 0.3409999907016754, ""clear"": 0.1599999964237213, ""comedones"": 0.41100001335144043, ""dark_spots"": 0.4449999928474426, ""pores"": 0.07400000095367432, ""redness"": 0.24199999868869781, ""wrinkles"": 0.7570000290870667}"
+freckles_005.jpg,dark_spots,wrinkles,0,0,wrinkles,"{""acne"": 0.3799999952316284, ""clear"": 0.26100000739097595, ""comedones"": 0.5529999732971191, ""dark_spots"": 0.20000000298023224, ""pores"": 0.03500000014901161, ""redness"": 0.46399998664855957, ""wrinkles"": 0.7250000238418579}"
+freckles_009.jpg,dark_spots,NO_FACE:face_too_small,,,,
+freckles_011.jpg,dark_spots,acne,0,0,acne comedones,"{""acne"": 0.8019999861717224, ""clear"": 0.032999999821186066, ""comedones"": 0.7940000295639038, ""dark_spots"": 0.5730000138282776, ""pores"": 0.1120000034570694, ""redness"": 0.29100000858306885, ""wrinkles"": 0.460999995470047}"
+freckles_012.jpg,dark_spots,acne,0,0,acne,"{""acne"": 0.828000009059906, ""clear"": 0.164000004529953, ""comedones"": 0.49799999594688416, ""dark_spots"": 0.6899999976158142, ""pores"": 0.017999999225139618, ""redness"": 0.1120000034570694, ""wrinkles"": 0.5440000295639038}"
+freckles_013.jpg,dark_spots,NO_FACE:face_too_small,,,,
+freckles_016.jpg,dark_spots,NO_FACE:no_face,,,,
+redness_a7912384.jpg,redness,acne,0,0,acne,"{""acne"": 0.9610000252723694, ""clear"": 0.08399999886751175, ""comedones"": 0.12999999523162842, ""dark_spots"": 0.05000000074505806, ""pores"": 0.02500000037252903, ""redness"": 0.10499999672174454, ""wrinkles"": 0.06300000101327896}"
+clear_001.jpg,wrinkles,comedones,0,0,comedones dark_spots,"{""acne"": 0.3880000114440918, ""clear"": 0.061000000685453415, ""comedones"": 0.8050000071525574, ""dark_spots"": 0.7419999837875366, ""pores"": 0.1940000057220459, ""redness"": 0.45899999141693115, ""wrinkles"": 0.5139999985694885}"
+clear_004.jpg,wrinkles,NO_FACE:no_face,,,,
+freckles_007.jpg,wrinkles,acne,0,0,acne,"{""acne"": 0.8669999837875366, ""clear"": 0.06599999964237213, ""comedones"": 0.20600000023841858, ""dark_spots"": 0.6480000019073486, ""pores"": 0.2290000021457672, ""redness"": 0.14499999582767487, ""wrinkles"": 0.49900001287460327}"
+wrinkles_000.jpg,wrinkles,wrinkles,1,1,wrinkles,"{""acne"": 0.453000009059906, ""clear"": 0.18799999356269836, ""comedones"": 0.49000000953674316, ""dark_spots"": 0.35499998927116394, ""pores"": 0.07699999958276749, ""redness"": 0.11800000071525574, ""wrinkles"": 0.9120000004768372}"
+wrinkles_001.jpg,wrinkles,NO_FACE:no_face,,,,
+wrinkles_003.jpg,wrinkles,clear,0,0,,"{""acne"": 0.5080000162124634, ""clear"": 0.0560000017285347, ""comedones"": 0.35499998927116394, ""dark_spots"": 0.6690000295639038, ""pores"": 0.041999999433755875, ""redness"": 0.1509999930858612, ""wrinkles"": 0.5460000038146973}"
+wrinkles_005.jpg,wrinkles,NO_FACE:no_face,,,,
+wrinkles_006.jpg,wrinkles,NO_FACE:face_too_small,,,,
+wrinkles_007.jpg,wrinkles,wrinkles,1,1,wrinkles acne,"{""acne"": 0.847000002861023, ""clear"": 0.17399999499320984, ""comedones"": 0.0820000022649765, ""dark_spots"": 0.014000000432133675, ""pores"": 0.08299999684095383, ""redness"": 0.14900000393390656, ""wrinkles"": 0.8799999952316284}"
+wrinkles_013.jpg,wrinkles,wrinkles,1,1,wrinkles acne,"{""acne"": 0.7419999837875366, ""clear"": 0.2549999952316284, ""comedones"": 0.14100000262260437, ""dark_spots"": 0.09799999743700027, ""pores"": 0.06499999761581421, ""redness"": 0.27900001406669617, ""wrinkles"": 0.8889999985694885}"
+wrinkles_014.jpg,wrinkles,comedones,0,0,comedones,"{""acne"": 0.6970000267028809, ""clear"": 0.3269999921321869, ""comedones"": 0.7009999752044678, ""dark_spots"": 0.28200000524520874, ""pores"": 0.03500000014901161, ""redness"": 0.13199999928474426, ""wrinkles"": 0.6620000004768372}"
+wrinkles_015.jpg,wrinkles,NO_FACE:face_too_small,,,,
+wrinkles_019.jpg,wrinkles,NO_FACE:face_too_small,,,,
+wrinkles_020.jpg,wrinkles,wrinkles,1,1,wrinkles,"{""acne"": 0.47699999809265137, ""clear"": 0.3959999978542328, ""comedones"": 0.22599999606609344, ""dark_spots"": 0.3330000042915344, ""pores"": 0.289000004529953, ""redness"": 0.2150000035762787, ""wrinkles"": 0.8619999885559082}"

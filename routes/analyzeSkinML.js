@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const nvidiaService = require('../services/nvidiaService');
+const { analyzeImage } = require('../services/visionAnalysis');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -42,12 +42,8 @@ router.post('/', upload.single('image'), async (req, res) => {
     const uploadId = `${Date.now()}-${req.file.size}`;
     console.log(`[ML Analysis] uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
 
-    if (!nvidiaService.isVisionConfigured()) {
-      throw new Error('NVIDIA NIM vision not configured');
-    }
-
-    console.log('[ML Analysis] PRIMARY: NVIDIA Nemotron Omni vision analysis');
-    const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
+    const result = await analyzeImage(imageBase64, mimeType);
+    console.log(`[ML Analysis] analysed by ${result.provider}`);
     const inner = result.inner;
     const imageConfidence = result.imageConfidence;
 
@@ -60,6 +56,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       undertone: inner.undertone || 'unable to determine',
       imageConfidence,
       _uploadId: uploadId,
+      engine: result.provider,
     };
     
     console.log('[ML Analysis] Normalized data:', JSON.stringify(normalizedData, null, 2));

@@ -23,6 +23,23 @@ module.exports = {
       maxTokens: parseInt(process.env.NVIDIA_MAX_TOKENS) || 4096,
       reasoningBudget: parseInt(process.env.NVIDIA_REASONING_BUDGET) || 2048,
     },
+
+    // OpenRouter: primary photo analysis. OpenRouter tries the models in order, so a busy model
+    // falls through to the next one. Free (":free") models work on a free key but are often
+    // rate-limited; with credit, put a fast paid model first (e.g. google/gemini-2.5-flash-lite).
+    openrouter: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      models: (process.env.OPENROUTER_MODELS ||
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,google/gemma-4-31b-it:free,qwen/qwen3.8-27b:free')
+        .split(',').map(m => m.trim()).filter(Boolean),
+    },
+  },
+
+  // Photo analysis: providers are tried in this order, each with its own time limit, so a slow or
+  // overloaded service cannot hold a user on the loading screen.
+  vision: {
+    openrouterTimeoutMs: parseInt(process.env.OPENROUTER_TIMEOUT_MS, 10) || 20000,
+    nvidiaTimeoutMs: parseInt(process.env.NVIDIA_TIMEOUT_MS, 10) || 15000,
   },
 
   rateLimit: {

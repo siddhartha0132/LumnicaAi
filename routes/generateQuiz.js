@@ -1,28 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const nvidiaService = require('../services/nvidiaService');
+const doshaService = require('../services/doshaService');
+const { AppError } = require('../middleware/errorHandler');
 
-router.post('/', async (req, res) => {
+router.post('/', (req, res, next) => {
   try {
     const { skinData } = req.body;
 
-    if (!skinData) {
-      return res.status(400).json({ error: 'skinData is required' });
+    if (!skinData || typeof skinData !== 'object') {
+      throw new AppError('skinData is required', 400);
     }
 
-    console.log('[generateQuiz] skinData received:', JSON.stringify(skinData, null, 2));
+    const questions = doshaService.getQuiz(skinData);
+    console.log(`[generateQuiz] ${questions.length} questions: ${questions.map(q => q.id).join(', ')}`);
 
-    if (!nvidiaService.isConfigured()) {
-      throw new Error('NVIDIA NIM not configured');
-    }
-
-    console.log('[generateQuiz] PRIMARY: Using NVIDIA to generate quiz');
-    const response = await nvidiaService.generateQuizQuestions(skinData);
-
-    res.json({ questions: response.questions });
+    res.json({ questions });
   } catch (err) {
-    console.error('[generateQuiz] error:', err.message);
-    res.status(500).json({ error: 'Quiz generation failed: ' + err.message });
+    next(err);
   }
 });
 

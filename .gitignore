@@ -2,3 +2,12 @@ node_modules/
 .env
 .DS_Store
 *.log
+ml/.venv/
+ml/data/
+ml/output*/
+ml/eval/images/
+ml/clear_portraits/images/
+ml/clear_portraits/rejected/
+ml/clear_portraits/candidates*.json
+__pycache__/
+contrib_data/

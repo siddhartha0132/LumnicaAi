@@ -1,0 +1,7 @@
+{
+  "title": "Lumnica Clear Portraits",
+  "id": "hackhackwithus/lumnica-clear-portraits",
+  "subtitle": "Openly licensed portraits (CC0 / PDM / CC BY) used as real-skin 'clear' examples",
+  "description": "Colour portraits found via Openverse, filtered to faces with usable cheek skin. Licences: CC0, public-domain mark and CC BY only. Attribution for every image is in sources.csv.",
+  "licenses": [{"name": "other"}]
+}

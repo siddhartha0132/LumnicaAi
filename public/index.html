@@ -238,6 +238,108 @@
             font-weight: bold;
         }
 
+        .dosha-bars {
+            margin-top: 20px;
+        }
+
+        .dosha-bar {
+            display: grid;
+            grid-template-columns: 60px 1fr 45px;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+        }
+
+        .dosha-bar .track {
+            height: 10px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.25);
+            overflow: hidden;
+        }
+
+        .dosha-bar .fill {
+            height: 100%;
+            border-radius: 5px;
+            background: white;
+        }
+
+        .routine-section ul {
+            margin-left: 20px;
+            line-height: 1.7;
+        }
+
+        .routine-section h4 {
+            color: #333;
+            margin: 12px 0 6px;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .chip {
+            width: auto;
+            margin: 0;
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            font-size: 0.95em;
+            cursor: pointer;
+        }
+
+        .chip.selected {
+            background: #667eea;
+            color: white;
+        }
+
+        .chip:disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
+
+        .notice {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        .notice.warn {
+            background: #fffaf0;
+            border-left-color: #ed8936;
+        }
+
+        .notice ul {
+            margin: 8px 0 0 20px;
+        }
+
+        .inline-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .inline-actions button {
+            width: auto;
+            margin: 0;
+            padding: 10px 18px;
+        }
+
+        .disclaimer {
+            color: #888;
+            font-size: 0.85em;
+            line-height: 1.5;
+            margin: 15px 0;
+        }
+
         .error {
             background: #fee;
             color: #c33;
@@ -343,6 +445,7 @@
                     <input type="file" id="fileInput" accept="image/*">
                 </div>
                 <img id="preview" class="preview-img" style="display: none;">
+                <div id="qualityBox" class="notice warn" style="display: none;"></div>
                 <button id="analyzeUploadBtn" style="display: none;">Analyze My Skin</button>
                 <button id="backToChoiceBtn2" class="btn-secondary" style="display: block; margin: 20px auto;">Back</button>
             </div>
@@ -391,10 +494,15 @@
             initFaceMesh,
             runLiveSkinAnalysis
         } from './ml-engine.js';
+        import { analyzeSkinLocally, analyzeFaceSkin, checkPhotoQuality } from './skin-model.js';
 
         const API_URL = '/api';
+        const LOCAL_ENGINE = new URLSearchParams(location.search).get('engine') === 'local';
         let selectedFile = null;
         let skinData = null;
+        let lastPhoto = null;          // File or Blob of the analysed photo (for opt-in sharing)
+        let modelConcerns = [];        // what the analysis found, before the user's corrections
+        let skipQualityCheck = false;
         let questions = [];
         let answers = [];
         let isLiveCameraMode = false;
@@ -513,6 +621,7 @@
                     try {
                         const formData = new FormData();
                         formData.append('image', blob, 'face.jpg');
+                        lastPhoto = blob;
                         formData.append('mlData', JSON.stringify(mlData));
                         
                         const response = await fetch(`${API_URL}/analyzeSkinML`, {
@@ -530,7 +639,6 @@
                         skinData = data.skinData;
                         
                         displaySkinData();
-                        await loadQuiz();
                         showStep(3);
                         analyzeLiveBtn.disabled = false;
                     } catch (innerErr) {
@@ -634,18 +742,65 @@
                 return;
             }
 
+            const qualityBox = document.getElementById('qualityBox');
+            qualityBox.style.display = 'none';
+            if (!skipQualityCheck) {
+                try {
+                    const img = await createImageBitmap(selectedFile, { imageOrientation: 'from-image' });
+                    const quality = await checkPhotoQuality(img);
+                    console.log('Photo check:', quality);
+                    if (!quality.ok) {
+                        showQualityProblems(quality.problems);
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('Photo check unavailable, continuing:', err);
+                }
+            }
+            skipQualityCheck = false;
+            lastPhoto = selectedFile;
+
             console.log('Starting analysis...');
             showStep(2);
+
+            // Beta: on-device analysis (the photo stays in the browser). Off unless ?engine=local.
+            if (LOCAL_ENGINE) {
+                try {
+                    const img = await createImageBitmap(selectedFile, { imageOrientation: 'from-image' });
+                    const local = await analyzeSkinLocally(img);
+                    if (local) {
+                        console.log('On-device analysis:', local);
+                        skinData = local;
+                        displaySkinData();
+                        showStep(3);
+                        return;
+                    }
+                    console.warn('On-device analysis found no usable face; using server analysis');
+                } catch (err) {
+                    console.warn('On-device analysis failed; using server analysis:', err);
+                }
+            }
 
             const formData = new FormData();
             formData.append('image', selectedFile);
 
             try {
                 console.log('Sending request to:', `${API_URL}/analyzeSkin`);
-                const response = await fetch(`${API_URL}/analyzeSkin`, {
-                    method: 'POST',
-                    body: formData
-                });
+                // Don't leave people waiting on a slow or failing AI service: after 45 s (the server
+                // tries OpenRouter, then NVIDIA, within ~35 s), or on an error, fall back to the
+                // on-device analysis below.
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 45000);
+                let response;
+                try {
+                    response = await fetch(`${API_URL}/analyzeSkin`, {
+                        method: 'POST',
+                        body: formData,
+                        signal: controller.signal
+                    });
+                } finally {
+                    clearTimeout(timer);
+                }
 
                 console.log('Response status:', response.status);
 
@@ -660,30 +815,121 @@
                 skinData = data.skinData;
 
                 displaySkinData();
-                await loadQuiz();
                 showStep(3);
             } catch (error) {
-                console.error('Analysis error:', error);
-                showError('Failed to analyze image: ' + error.message);
+                console.error('Server analysis failed:', error);
+                if (!LOCAL_ENGINE) {
+                    try {
+                        const img = await createImageBitmap(selectedFile, { imageOrientation: 'from-image' });
+                        const local = await analyzeSkinLocally(img);
+                        if (local) {
+                            console.log('Fell back to on-device analysis:', local);
+                            skinData = local;
+                            displaySkinData();
+                            showStep(3);
+                            return;
+                        }
+                    } catch (localErr) {
+                        console.error('On-device fallback failed:', localErr);
+                    }
+                }
+                showError(error.name === 'AbortError'
+                    ? 'Analysis is taking too long. Please try again in a moment.'
+                    : 'Failed to analyze image: ' + error.message);
                 showStep(1);
             }
         });
 
+        function showQualityProblems(problems) {
+            const box = document.getElementById('qualityBox');
+            box.innerHTML = `
+                <strong>📷 For an accurate result, please retake your photo:</strong>
+                <ul>${problems.map(p => `<li>${escapeHtml(p.message)}</li>`).join('')}</ul>
+                <div class="inline-actions">
+                    <button type="button" id="retakeBtn">Choose another photo</button>
+                    <button type="button" id="analyzeAnywayBtn" class="btn-secondary">Analyze anyway</button>
+                </div>`;
+            box.style.display = 'block';
+            document.getElementById('retakeBtn').onclick = () => fileInput.click();
+            document.getElementById('analyzeAnywayBtn').onclick = () => {
+                skipQualityCheck = true;
+                analyzeUploadBtn.click();
+            };
+        }
+
+        // Concerns the user can confirm or add. The text is what the backend's dosha engine reads.
+        const CONCERN_OPTIONS = [
+            { text: 'acne', match: /acne|pimple|breakout|pustule|papule/i },
+            { text: 'blackheads and whiteheads', match: /blackhead|whitehead|comedo/i },
+            { text: 'dark spots', match: /dark spot|pigment|melasma|freckle|\bspots?\b/i },
+            { text: 'enlarged pores', match: /pore/i },
+            { text: 'redness and sensitivity', match: /\bred(ness)?\b|rosacea|irritat|sensitiv|inflam/i },
+            { text: 'fine lines and wrinkles', match: /fine line|wrinkle|ag(e)?ing/i },
+            { text: 'dryness and flaking', match: /\bdry|dryness|flak|dehydrat|rough/i },
+            { text: 'oily skin and shine', match: /oily|oiliness|shine|greasy|sebum/i },
+            { text: 'dullness', match: /dull/i },
+            { text: 'dark circles', match: /dark circle|under-?eye|puff/i },
+        ];
+
+        function detectedOptions(data) {
+            const text = [...(Array.isArray(data.concerns) ? data.concerns : []), data.texture || '']
+                .filter(c => !/none visible/i.test(c)).join(' | ');
+            const picked = new Set(CONCERN_OPTIONS.filter(o => o.match.test(text)).map(o => o.text));
+            const oil = String(data.oiliness || '').match(/t-?zone[^0-9]*(\d+)[^0-9]+(\d+)/i);
+            if (oil) {
+                const avg = (Number(oil[1]) + Number(oil[2])) / 2;
+                if (avg >= 7) picked.add('oily skin and shine');
+                if (avg <= 3) picked.add('dryness and flaking');
+            }
+            return picked;
+        }
+
         function displaySkinData() {
             const display = document.getElementById('skinDataDisplay');
-            const hex = skinData.approximateHex || null;
-            const swatchHtml = hex
-                ? `<div style="display:inline-block; width:28px; height:28px; border-radius:50%; background:${hex}; border:2px solid #ccc; vertical-align:middle; margin-right:8px;" title="${hex}"></div><code style="font-size:0.85em;color:#555;">${hex}</code>`
-                : '';
+            modelConcerns = Array.isArray(skinData.concerns) ? [...skinData.concerns] : [];
+            const picked = detectedOptions(skinData);
+            const onDevice = skinData.engine === 'on-device';
             display.innerHTML = `
                 <h3>📊 Skin Analysis Results</h3>
-                <p><strong>Tone:</strong> ${skinData.tone}${skinData.fitzpatrickType ? ' &nbsp;·&nbsp; Fitzpatrick <strong>' + skinData.fitzpatrickType + '</strong>' : ''}</p>
-                ${hex ? `<p><strong>Skin Color:</strong> &nbsp;${swatchHtml}</p>` : ''}
-                <p><strong>Undertone:</strong> ${skinData.undertone}</p>
-                <p><strong>Oiliness:</strong> ${skinData.oiliness}</p>
-                <p><strong>Texture:</strong> ${skinData.texture}</p>
-                <p><strong>Concerns:</strong> ${Array.isArray(skinData.concerns) ? skinData.concerns.join(', ') : skinData.concerns}</p>
+                <p><strong>Tone:</strong> ${escapeHtml(skinData.tone)}</p>
+                <p><strong>Undertone:</strong> ${escapeHtml(skinData.undertone)}</p>
+                <p><strong>Oiliness:</strong> ${escapeHtml(skinData.oiliness)}</p>
+                <p><strong>Texture:</strong> ${escapeHtml(skinData.texture)}</p>
+                ${onDevice ? '<p style="color:#48bb78;">🔒 Analysed on your device: your photo was not uploaded.</p>' : ''}
+                <div class="notice">
+                    <strong>What we noticed: is this right?</strong><br>
+                    <small>Our AI can miss things or get them wrong. Tap to correct it: your routine is built on what you confirm.</small>
+                    <div class="chips" id="concernChips">
+                        ${CONCERN_OPTIONS.map(o => `<button type="button" class="chip${picked.has(o.text) ? ' selected' : ''}" data-concern="${escapeHtml(o.text)}">${escapeHtml(o.text)}</button>`).join('')}
+                        <button type="button" class="chip${picked.size === 0 ? ' selected' : ''}" data-concern="none">no visible concerns</button>
+                    </div>
+                    <button type="button" id="confirmConcernsBtn">Looks right: continue</button>
+                </div>
             `;
+            document.querySelector('#step3 .progress').style.display = 'none';
+            document.getElementById('questionsContainer').innerHTML = '';
+            document.getElementById('submitQuizBtn').style.display = 'none';
+
+            const chips = [...document.querySelectorAll('#concernChips .chip')];
+            const noneChip = chips.find(c => c.dataset.concern === 'none');
+            chips.forEach(chip => chip.addEventListener('click', () => {
+                if (chip === noneChip) {
+                    chips.forEach(c => c.classList.toggle('selected', c === noneChip));
+                } else {
+                    chip.classList.toggle('selected');
+                    noneChip.classList.toggle('selected', !chips.some(c => c !== noneChip && c.classList.contains('selected')));
+                }
+            }));
+
+            document.getElementById('confirmConcernsBtn').addEventListener('click', async (e) => {
+                const confirmed = chips.filter(c => c !== noneChip && c.classList.contains('selected')).map(c => c.dataset.concern);
+                skinData.concerns = confirmed.length ? confirmed : ['none visible'];
+                skinData.userConfirmed = true;
+                chips.forEach(c => { c.disabled = true; });
+                e.target.style.display = 'none';
+                document.querySelector('#step3 .progress').style.display = 'block';
+                await loadQuiz();
+            });
         }
 
         async function loadQuiz() {
@@ -761,7 +1007,7 @@
                 const response = await fetch(`${API_URL}/analyzeResults`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ skinData, answers })
+                    body: JSON.stringify({ skinData, answers, questionIds: questions.map(q => q.id) })
                 });
 
                 if (!response.ok) throw new Error('Failed to analyze results');
@@ -775,58 +1021,173 @@
             }
         });
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
         function displayResults(results) {
             const container = document.getElementById('resultsContainer');
-            
-            container.innerHTML = `
-                <div class="dosha-card">
-                    <h2>🕉️ Your Dosha: ${results.dosha.type}</h2>
-                    <p style="margin-top: 15px; line-height: 1.6;">${results.dosha.description}</p>
-                </div>
+            const scores = results.dosha.scores || {};
 
+            const routineSection = (title, steps) => `
                 <div class="routine-section">
-                    <h3>🌅 Morning Routine</h3>
-                    ${results.routine.morning.map(step => `
+                    <h3>${title}</h3>
+                    ${steps.map(step => `
                         <div class="routine-step">
-                            <strong>${step.step}:</strong> ${step.product}<br>
-                            <small style="color: #666;">${step.reason}</small>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div class="routine-section">
-                    <h3>🌙 Night Routine</h3>
-                    ${results.routine.night.map(step => `
-                        <div class="routine-step">
-                            <strong>${step.step}:</strong> ${step.product}<br>
-                            <small style="color: #666;">${step.reason}</small>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div class="routine-section">
-                    <h3>📅 Weekly Routine</h3>
-                    ${results.routine.weekly.map(step => `
-                        <div class="routine-step">
-                            <strong>${step.step}:</strong> ${step.product}<br>
-                            <small style="color: #666;">${step.reason}</small>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div class="routine-section">
-                    <h3>🛍️ Recommended Products</h3>
-                    ${results.products.map(product => `
-                        <div class="product-card">
-                            <div>
-                                <strong>${product.name}</strong><br>
-                                <small style="color: #666;">${product.benefit}</small>
-                            </div>
-                            <div class="price">₹${product.price}</div>
+                            <strong>${escapeHtml(step.step)}:</strong> ${escapeHtml(step.recommendation)}<br>
+                            <small style="color: #666;">${escapeHtml(step.reason)}</small>
                         </div>
                     `).join('')}
                 </div>
             `;
+
+            const list = items => `<ul>${items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+
+            container.innerHTML = `
+                <div class="dosha-card">
+                    <h2>🕉️ Your Dosha: ${escapeHtml(results.dosha.type)}</h2>
+                    <p style="margin-top: 15px; line-height: 1.6;">${escapeHtml(results.dosha.description)}</p>
+                    <div class="dosha-bars">
+                        ${['vata', 'pitta', 'kapha'].map(d => `
+                            <div class="dosha-bar">
+                                <span style="text-transform: capitalize;">${d}</span>
+                                <div class="track"><div class="fill" style="width: ${Number(scores[d]) || 0}%;"></div></div>
+                                <span>${Number(scores[d]) || 0}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                ${routineSection('🌅 Morning Routine', results.routine.morning)}
+                ${routineSection('🌙 Night Routine', results.routine.night)}
+                ${routineSection('📅 Weekly Rituals', results.routine.weekly)}
+
+                ${results.tips && results.tips.length ? `
+                    <div class="routine-section">
+                        <h3>💡 Tips for Your Skin</h3>
+                        ${list(results.tips)}
+                    </div>
+                ` : ''}
+
+                ${results.lifestyle ? `
+                    <div class="routine-section">
+                        <h3>🌿 Diet & Lifestyle</h3>
+                        <h4>Favour</h4>
+                        ${list(results.lifestyle.eat)}
+                        <h4>Reduce</h4>
+                        ${list(results.lifestyle.avoid)}
+                        <h4>Daily habits</h4>
+                        ${list(results.lifestyle.habits)}
+                    </div>
+                ` : ''}
+
+                ${results.disclaimer ? `<p class="disclaimer">${escapeHtml(results.disclaimer)}</p>` : ''}
+
+                <div class="notice" id="feedbackBox">
+                    <strong>Did we get your skin right?</strong>
+                    <div class="inline-actions">
+                        <button type="button" data-rating="up">👍 Yes</button>
+                        <button type="button" data-rating="down" class="btn-secondary">👎 Not really</button>
+                    </div>
+                </div>
+                <div class="notice" id="shareBox" style="display: none;"></div>
+            `;
+            setupFeedback(results);
+            setupSharing(results);
+        }
+
+        function analysisSummary(results) {
+            return {
+                engine: skinData?.engine || 'server',
+                modelConcerns,
+                confirmedConcerns: skinData?.concerns || [],
+                userConfirmed: Boolean(skinData?.userConfirmed),
+                modelScores: skinData?._model?.scores || null,
+                tone: skinData?.tone, undertone: skinData?.undertone, oiliness: skinData?.oiliness,
+                dosha: results?.dosha?.type,
+                questionIds: questions.map(q => q.id),
+                answers,
+            };
+        }
+
+        function setupFeedback(results) {
+            const box = document.getElementById('feedbackBox');
+            box.querySelectorAll('button[data-rating]').forEach(btn => btn.addEventListener('click', async () => {
+                box.innerHTML = '<strong>Thank you!</strong> Your feedback helps us improve.';
+                try {
+                    await fetch(`${API_URL}/feedback`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rating: btn.dataset.rating, ...analysisSummary(results), answers: undefined }),
+                    });
+                } catch (err) {
+                    console.warn('Feedback not sent:', err);
+                }
+            }));
+        }
+
+        // Opt-in photo sharing: shown only when the server has storage configured.
+        async function setupSharing(results) {
+            const box = document.getElementById('shareBox');
+            if (!lastPhoto) return;
+            try {
+                const status = await (await fetch(`${API_URL}/contribute/status`)).json();
+                if (!status.enabled) return;
+            } catch {
+                return;
+            }
+            box.innerHTML = `
+                <strong>💜 Help improve Lumnica (optional)</strong>
+                <p style="margin-top:8px;">Share this photo, the concerns you confirmed and your quiz answers so we can make our skin analysis more accurate. Location data is removed from the photo. You can delete it at any time.</p>
+                <label style="display:block; margin-top:10px;"><input type="checkbox" id="shareConsent"> I am 18 or older and I agree that Lumnica may store this photo and my answers to improve its skin analysis.</label>
+                <div class="inline-actions"><button type="button" id="shareBtn" disabled>Share my photo</button></div>`;
+            box.style.display = 'block';
+            const consent = document.getElementById('shareConsent');
+            const shareBtn = document.getElementById('shareBtn');
+            consent.addEventListener('change', () => { shareBtn.disabled = !consent.checked; });
+            shareBtn.addEventListener('click', async () => {
+                shareBtn.disabled = true;
+                // Also record what our own on-device model thinks, so each shared photo carries the
+                // user's label (human), the server AI's answer (teacher) and our model's (student).
+                let studentScores = skinData?._model?.scores || null;
+                if (!studentScores) {
+                    try {
+                        const bmp = await createImageBitmap(lastPhoto, { imageOrientation: 'from-image' });
+                        const own = await analyzeFaceSkin(bmp);
+                        if (own.faceFound) studentScores = own.scores;
+                    } catch (err) {
+                        console.warn('On-device scores unavailable:', err);
+                    }
+                }
+                const form = new FormData();
+                form.append('image', lastPhoto, 'photo.jpg');
+                form.append('consent', 'yes');
+                form.append('ageConfirmed', 'yes');
+                form.append('metadata', JSON.stringify({ ...analysisSummary(results), studentScores }));
+                try {
+                    const res = await fetch(`${API_URL}/contribute`, { method: 'POST', body: form });
+                    if (!res.ok) throw new Error(await res.text());
+                    const { id, deleteToken } = await res.json();
+                    box.innerHTML = `
+                        <strong>Thank you for helping! 💜</strong>
+                        <p style="margin-top:8px;">Your deletion code: <code style="word-break:break-all;">${escapeHtml(id)}.${escapeHtml(deleteToken)}</code><br><small>Save it: send it to us any time and we will delete your photo and answers.</small></p>
+                        <div class="inline-actions"><button type="button" id="deleteShareBtn" class="btn-secondary">Delete my photo</button></div>`;
+                    document.getElementById('deleteShareBtn').addEventListener('click', async () => {
+                        const del = await fetch(`${API_URL}/contribute/${encodeURIComponent(id)}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: deleteToken }),
+                        });
+                        box.innerHTML = del.ok ? '<strong>Deleted.</strong> Your photo and answers have been removed.'
+                                               : '<strong>Could not delete right now.</strong> Please contact support with your reference.';
+                    });
+                } catch (err) {
+                    console.error('Share failed:', err);
+                    box.innerHTML = '<strong>Sorry, sharing failed.</strong> Nothing was stored.';
+                }
+            });
         }
 
         function showStep(stepNumber) {

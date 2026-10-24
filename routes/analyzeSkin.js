@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const nvidiaService = require('../services/nvidiaService');
+const { analyzeImage } = require('../services/visionAnalysis');
 const config = require('../config');
 
 const upload = multer({
@@ -29,24 +29,21 @@ router.post('/', upload.single('image'), async (req, res) => {
     const uploadId = `${Date.now()}-${req.file.size}`;
     console.log(`[analyzeSkin] uploadId=${uploadId} | mime=${mimeType} | bytes=${req.file.size}`);
 
-    if (!nvidiaService.isVisionConfigured()) {
-      throw new Error('NVIDIA NIM vision not configured');
-    }
-
-    console.log('[analyzeSkin] PRIMARY: NVIDIA vision analysis');
-    const result = await nvidiaService.analyzeSkinFromImage(imageBase64, mimeType);
+    const result = await analyzeImage(imageBase64, mimeType);
+    console.log(`[analyzeSkin] analysed by ${result.provider}`);
     const inner = result.inner;
     const imageConfidence = result.imageConfidence;
 
     // Normalize to ensure all required fields — never let "unknown" through
     const skinData = {
-      tone:      inner.tone     && inner.tone     !== 'unknown' ? inner.tone     : 'medium skin tone',
-      oiliness:  inner.oiliness && inner.oiliness !== 'unknown' ? inner.oiliness : 'T-zone: 5/10, Cheeks: 3/10',
-      texture:   inner.texture  && inner.texture  !== 'unknown' ? inner.texture  : 'normal texture',
-      concerns:  Array.isArray(inner.concerns) && inner.concerns.length > 0 ? inner.concerns : ['none visible'],
+      tone: inner.tone && inner.tone !== 'unknown' ? inner.tone : 'medium skin tone',
+      oiliness: inner.oiliness && inner.oiliness !== 'unknown' ? inner.oiliness : 'T-zone: 5/10, Cheeks: 3/10',
+      texture: inner.texture && inner.texture !== 'unknown' ? inner.texture : 'normal texture',
+      concerns: Array.isArray(inner.concerns) && inner.concerns.length > 0 ? inner.concerns : ['none visible'],
       undertone: inner.undertone && inner.undertone !== 'unknown' ? inner.undertone : 'neutral',
       imageConfidence,
       _uploadId: uploadId,
+      engine: result.provider,
     };
 
     console.log('[analyzeSkin] Final normalized data:', JSON.stringify(skinData, null, 2));

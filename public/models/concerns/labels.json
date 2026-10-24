@@ -1,0 +1,158 @@
+{
+  "version": 3,
+  "classes": [
+    "acne",
+    "clear",
+    "comedones",
+    "dark_spots",
+    "pores",
+    "redness",
+    "wrinkles"
+  ],
+  "input": {
+    "name": "image",
+    "shape": [
+      1,
+      3,
+      224,
+      224
+    ],
+    "range": "0-1 RGB, normalisation inside model",
+    "preprocess": "resize shorter side to 255, centre-crop 224"
+  },
+  "output": {
+    "name": "probabilities"
+  },
+  "model_file": "model.int8.onnx",
+  "regions": {
+    "forehead": {
+      "center": [
+        151
+      ],
+      "size": 0.3
+    },
+    "right_cheek": {
+      "center": [
+        50
+      ],
+      "size": 0.22
+    },
+    "left_cheek": {
+      "center": [
+        280
+      ],
+      "size": 0.22
+    },
+    "nose": {
+      "center": [
+        4
+      ],
+      "size": 0.18
+    },
+    "chin": {
+      "center": [
+        199
+      ],
+      "size": 0.2
+    },
+    "right_eye_out": {
+      "center": [
+        33
+      ],
+      "push": 0.25,
+      "size": 0.13
+    },
+    "left_eye_out": {
+      "center": [
+        263
+      ],
+      "push": 0.25,
+      "size": 0.13
+    }
+  },
+  "face_width_landmarks": [
+    234,
+    454
+  ],
+  "push_from_landmark": 168,
+  "min_patch_px": 40,
+  "min_skin_fraction": 0.6,
+  "face_threshold": 0.875,
+  "aggregation": "per concern: max probability over the regions in regions_for[concern]; reported if >= concern_thresholds[concern]; none reported => clear",
+  "test_patch_accuracy": 0.8829,
+  "test_face_accuracy": 0.6177,
+  "concern_thresholds": {
+    "acne": 0.8,
+    "comedones": 1.01,
+    "dark_spots": 0.575,
+    "pores": 1.01,
+    "redness": 0.95,
+    "wrinkles": 0.6
+  },
+  "regions_for": {
+    "acne": [
+      "forehead",
+      "right_cheek",
+      "left_cheek",
+      "chin"
+    ],
+    "comedones": [
+      "nose",
+      "chin",
+      "forehead"
+    ],
+    "dark_spots": [
+      "forehead",
+      "right_cheek",
+      "left_cheek"
+    ],
+    "pores": [
+      "nose",
+      "right_cheek",
+      "left_cheek"
+    ],
+    "redness": [
+      "right_cheek",
+      "left_cheek",
+      "nose"
+    ],
+    "wrinkles": [
+      "forehead",
+      "right_eye_out",
+      "left_eye_out"
+    ],
+    "clear": [
+      "forehead",
+      "right_cheek",
+      "left_cheek"
+    ]
+  },
+  "tuning": {
+    "scores_from": "browser",
+    "val": {
+      "top1": 0.8588362068965517,
+      "false_alarm": 0.09970674486803519,
+      "recall": 0.8551959114139693,
+      "precision": 0.7905511811023622,
+      "n": 928,
+      "fa_str": "34/341",
+      "found_str": "502/587"
+    },
+    "real_world": {
+      "top1": 0.5333333333333333,
+      "false_alarm": 0.14285714285714285,
+      "recall": 0.4583333333333333,
+      "precision": 0.5,
+      "n": 45,
+      "fa_str": "3/21",
+      "found_str": "11/24"
+    },
+    "real_world_faces": 45
+  },
+  "min_face_fraction": 0.15,
+  "disabled_concerns": [
+    "comedones",
+    "pores"
+  ],
+  "disabled_reason": "Not reported: hard to see at selfie resolution; dropping them raised real-photo precision from 41% to 50% with the same top-1 (ml/compare_models.py)."
+}

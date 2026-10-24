@@ -49,7 +49,8 @@ const nvidiaService = {
   },
 
   /**
-   * Core API call — one model handles ALL tasks (vision + text).
+   * Core API call. Only image analysis uses NVIDIA now; the quiz and results
+   * are rule-based (see services/doshaService.js).
    * Model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
    * MoE: 30B total params, only 3B active → fast despite size.
    */
@@ -102,17 +103,10 @@ const nvidiaService = {
   },
 
   /**
-   * Text-only chat — quiz generation & result analysis
-   */
-  async chat(messages, options = {}) {
-    return this._call(messages, options);
-  },
-
-  /**
    * Vision analysis — compress image, send to omni model.
-   * Retries once on timeout.
+   * Retries on timeout (`attempts`); visionAnalysis.js passes a short budget when NVIDIA is a fallback.
    */
-  async analyzeSkinFromImage(imageBase64, mimeType) {
+  async analyzeSkinFromImage(imageBase64, mimeType, { timeout = 90000, attempts = 2 } = {}) {
     if (!this.isConfigured()) {
       throw new AppError('NVIDIA NIM not configured — set NVIDIA_API_KEY in env', 500);
     }
@@ -155,14 +149,14 @@ const nvidiaService = {
 
     // Retry once on timeout — NIM can be slow under load
     let content;
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
-        console.log(`[NVIDIA Vision] Attempt ${attempt}/2...`);
-        content = await this._call(messages, { timeout: 90000, reasoningBudget: 1024 });
+        console.log(`[NVIDIA Vision] Attempt ${attempt}/${attempts}...`);
+        content = await this._call(messages, { timeout, reasoningBudget: 1024 });
         break;
       } catch (err) {
         const isTimeout = err.message && err.message.includes('timeout');
-        if (isTimeout && attempt < 2) {
+        if (isTimeout && attempt < attempts) {
           console.warn(`[NVIDIA Vision] Attempt ${attempt} timed out, retrying...`);
           continue;
         }
@@ -178,121 +172,6 @@ const nvidiaService = {
 
     console.log('[NVIDIA Vision] imageConfidence:', imageConfidence);
     return { inner, imageConfidence };
-  },
-
-  /**
-   * Analyze quiz answers + skin data → Ayurvedic routine
-   */
-  async analyzeResults(skinData, answers) {
-    const answerText = answers.map((a, i) => `Q${i + 1}: ${a}`).join(' | ');
-
-    const tone = skinData.tone || 'unknown';
-    const fitzpatrick = skinData.fitzpatrickType || skinData.fitzpatrick?.type || 'unknown';
-    const oiliness = skinData.oiliness || 'unknown';
-    const texture = skinData.texture || 'unknown';
-    const undertone = skinData.undertone || skinData.fitzpatrick?.undertone || 'unknown';
-
-    let concerns = 'none';
-    if (Array.isArray(skinData.concerns)) {
-      concerns = skinData.concerns.join(', ');
-    }
-
-    const prompt = `You are an expert Ayurvedic dermatologist. Analyze this skin profile and quiz answers to provide a personalized Ayurvedic skincare recommendation.
-
-SKIN PROFILE:
-- Skin Tone: ${tone}
-- Fitzpatrick Type: ${fitzpatrick}
-- Oiliness: ${oiliness}
-- Texture: ${texture}
-- Concerns: ${concerns}
-- Undertone: ${undertone}
-
-QUIZ ANSWERS: ${answerText}
-
-Return a valid JSON object ONLY (no markdown, no text outside JSON):
-{
-  "dosha": {
-    "type": "Pitta-Kapha",
-    "description": "Your constitution combines..."
-  },
-  "skinProfile": {
-    "tone": "${tone}",
-    "type": "${oiliness}",
-    "concerns": ${JSON.stringify(concerns.split(', '))},
-    "undertone": "${undertone}"
-  },
-  "routine": {
-    "morning": [
-      { "step": "Cleanse", "product": "Neem Face Wash", "reason": "why it works" }
-    ],
-    "night": [
-      { "step": "Double Cleanse", "product": "Coconut Oil", "reason": "why it works" }
-    ],
-    "weekly": [
-      { "step": "Face Mask", "product": "Multani Mitti", "reason": "why it works" }
-    ]
-  },
-  "products": [
-    { "name": "Product Name", "price": 299, "benefit": "Key benefit" }
-  ],
-  "doshaInsights": "Lifestyle and dietary advice..."
-}`;
-
-    const response = await this.chat([{ role: 'user', content: prompt }], {
-      maxTokens: 2048,
-      reasoningBudget: 256,
-    });
-    const result = this.extractJSON(response);
-
-    if (!result.dosha || !result.routine) {
-      throw new AppError('Invalid NVIDIA response structure — missing dosha or routine', 500);
-    }
-
-    return result;
-  },
-
-  /**
-   * Generate skin quiz questions based on image analysis data
-   */
-  async generateQuizQuestions(skinData) {
-    const tone = skinData.tone || 'unknown';
-    const oiliness = skinData.oiliness || 'unknown';
-    const texture = skinData.texture || 'unknown';
-    const undertone = skinData.undertone || 'unknown';
-
-    let concerns = 'none';
-    if (Array.isArray(skinData.concerns)) {
-      concerns = skinData.concerns.join(', ');
-    }
-
-    const prompt = `You are an Ayurvedic skin expert. Based on this person's skin analysis, generate 5 personalized quiz questions to determine their Ayurvedic dosha.
-
-SKIN ANALYSIS:
-- Tone: ${tone}
-- Oiliness: ${oiliness}
-- Texture: ${texture}
-- Undertone: ${undertone}
-- Concerns: ${concerns}
-
-Generate 5 questions specific to their concerns (${concerns}) and skin type (${oiliness}).
-Each question must have exactly 4 options.
-
-Return ONLY valid JSON, no markdown:
-{
-  "questions": [
-    {
-      "question": "Question text here?",
-      "options": ["Option A", "Option B", "Option C", "Option D"]
-    }
-  ]
-}`;
-
-    const response = await this.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.6,
-      maxTokens: 2048,
-      reasoningBudget: 256,
-    });
-    return this.extractJSON(response);
   },
 };
 

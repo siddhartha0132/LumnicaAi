@@ -9,6 +9,8 @@ const analyzeSkinRoute = require('./routes/analyzeSkin');
 const analyzeSkinMLRoute = require('./routes/analyzeSkinML');
 const generateQuizRoute = require('./routes/generateQuiz');
 const analyzeResultsRoute = require('./routes/analyzeResults');
+const contributeRoute = require('./routes/contribute');
+const feedbackRoute = require('./routes/feedback');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,10 +20,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "cdn.jsdelivr.net"],
+      // 'wasm-unsafe-eval' lets ONNX Runtime Web compile its WebAssembly engine (on-device skin models)
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "'wasm-unsafe-eval'", "cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "https://integrate.api.nvidia.com"],
+      connectSrc: ["'self'", "https://integrate.api.nvidia.com", "https://cdn.jsdelivr.net"],
     }
   }
 }));
@@ -44,17 +47,24 @@ app.use('/api/', limiter);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  const nvidiaOk = !!process.env.NVIDIA_API_KEY;
+  const nvidiaOk =
+    !!process.env.NVIDIA_API_KEY_TEXT &&
+    !!process.env.NVIDIA_API_KEY_VISION &&
+    !!process.env.NVIDIA_API_KEY_VISION_FALLBACK;
 
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     providers: {
-      nvidia: nvidiaOk,
+      nvidia_text: !!process.env.NVIDIA_API_KEY_TEXT,
+      nvidia_vision: !!process.env.NVIDIA_API_KEY_VISION,
+      nvidia_vision_fallback: !!process.env.NVIDIA_API_KEY_VISION_FALLBACK,
     },
     models: {
-      active: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+      text: process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct',
+      vision: process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct',
+      vision_fallback: process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-90b-vision-instruct',
     },
     allConfigured: nvidiaOk,
   });
@@ -65,16 +75,18 @@ app.use('/api/analyzeSkin', analyzeSkinRoute);
 app.use('/api/analyzeSkinML', analyzeSkinMLRoute);
 app.use('/api/generateQuiz', generateQuizRoute);
 app.use('/api/analyzeResults', analyzeResultsRoute);
+app.use('/api/contribute', contributeRoute);
+app.use('/api/feedback', feedbackRoute);
 
 // Global error handler (must be last)
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  const model = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
-  const keySet = !!process.env.NVIDIA_API_KEY;
   console.log(`\n🚀 LUMNICA AI Backend running on port ${PORT}`);
-  console.log(`\n📡 NVIDIA NIM:`);
-  console.log(`   Model:  ${model} ${keySet ? '✅' : '❌ NVIDIA_API_KEY not set'}`);
+  console.log(`\n📡 NVIDIA NIM Models:`);
+  console.log(`   Text Model:     ${process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct'} ${process.env.NVIDIA_API_KEY_TEXT ? '✅' : '❌'}`);
+  console.log(`   Vision Model:   ${process.env.NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION ? '✅' : '❌'}`);
+  console.log(`   Vision Fallback:${process.env.NVIDIA_VISION_FALLBACK_MODEL || 'meta/llama-3.2-90b-vision-instruct'} ${process.env.NVIDIA_API_KEY_VISION_FALLBACK ? '✅' : '❌'}`);
   console.log(`\n   Demo mode: ${process.env.DEMO_MODE}\n`);
 });
 

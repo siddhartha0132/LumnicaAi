@@ -787,7 +787,7 @@
             try {
                 console.log('Sending request to:', `${API_URL}/analyzeSkin`);
                 // Don't leave people waiting on a slow or failing AI service: after 45 s (the server
-                // tries OpenRouter, then NVIDIA, within ~35 s), or on an error, fall back to the
+                // tries OpenRouter, then NVIDIA, within ~40 s), or on an error, fall back to the
                 // on-device analysis below.
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), 45000);
